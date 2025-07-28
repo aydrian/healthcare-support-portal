@@ -1,0 +1,10 @@
+version: '3.8'
+services:
+  db:
+    image: ankane/pgvector
+    environment:
+      POSTGRES_DB: healthcare
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"

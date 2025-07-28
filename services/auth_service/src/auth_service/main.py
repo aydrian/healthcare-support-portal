@@ -1,0 +1,62 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from oso import Oso
+from sqlalchemy_oso import SQLAlchemyOso
+
+from common.db import create_tables
+from common.models import User, Patient, Document
+from .config import settings
+from .routers import auth, users
+
+# Initialize Oso
+oso = Oso()
+oso.register_class(User)
+oso.register_class(Patient) 
+oso.register_class(Document)
+oso.load_file(settings.policy_path)
+
+# Initialize SQLAlchemy Oso
+sqlalchemy_oso = SQLAlchemyOso(oso)
+sqlalchemy_oso.register_models([User, Patient, Document])
+
+# Create FastAPI app
+app = FastAPI(
+    title=settings.app_name,
+    description="Authentication and user management service",
+    version="0.1.0",
+    debug=settings.debug
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Configure appropriately for production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include routers
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
+
+@app.on_event("startup")
+async def startup_event():
+    """Create database tables on startup"""
+    create_tables()
+    print(f"🚀 {settings.app_name} started on port {settings.port}")
+
+@app.get("/")
+async def root():
+    return {
+        "service": "auth_service",
+        "status": "healthy",
+        "version": "0.1.0"
+    }
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
+# Make oso available to routes
+app.state.oso = oso
