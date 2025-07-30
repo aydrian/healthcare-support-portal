@@ -21,6 +21,7 @@ echo "🔍 Checking port availability..."
 check_port 8001 || exit 1
 check_port 8002 || exit 1
 check_port 8003 || exit 1
+check_port 3000 || exit 1
 
 echo ""
 echo "🚀 Starting services..."
@@ -50,17 +51,24 @@ cd services/rag_service && ./run.sh > ../../logs/rag.log 2>&1 &
 RAG_PID=$!
 cd ../..
 
+echo "🌐 Starting Frontend Service..."
+cd services/frontend_service && ./run.sh > ../../logs/frontend.log 2>&1 &
+FRONTEND_PID=$!
+cd ../..
+
 # Create logs directory if it doesn't exist
 mkdir -p logs
 
 echo ""
 echo "✅ All services started!"
 echo "=================================================="
+echo "🌐 Frontend:        http://localhost:3000"
 echo "🔐 Auth Service:    http://localhost:8001/docs"
 echo "🏥 Patient Service: http://localhost:8002/docs"
 echo "🤖 RAG Service:     http://localhost:8003/docs"
 echo ""
 echo "📋 Service PIDs:"
+echo "   Frontend Service: $FRONTEND_PID"
 echo "   Auth Service: $AUTH_PID"
 echo "   Patient Service: $PATIENT_PID"
 echo "   RAG Service: $RAG_PID"
@@ -70,13 +78,14 @@ echo "🛑 To stop all services, run: ./stop_all.sh"
 echo ""
 
 # Save PIDs for stopping later
+echo "$FRONTEND_PID" > logs/frontend.pid
 echo "$AUTH_PID" > logs/auth.pid
 echo "$PATIENT_PID" > logs/patient.pid
 echo "$RAG_PID" > logs/rag.pid
 
 # Wait for user input
 echo "Press Ctrl+C to stop all services..."
-trap 'echo ""; echo "🛑 Stopping all services..."; kill $AUTH_PID $PATIENT_PID $RAG_PID 2>/dev/null; exit 0' INT
+trap 'echo ""; echo "🛑 Stopping all services..."; kill $FRONTEND_PID $AUTH_PID $PATIENT_PID $RAG_PID 2>/dev/null; exit 0' INT
 
 # Keep script running
 wait

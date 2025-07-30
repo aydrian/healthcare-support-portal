@@ -233,6 +233,9 @@ core.*
 .vscode/extensions.json
 .history/
 
+# Claude Code settings
+.claude/
+
 # Node.js and Frontend
 node_modules/
 npm-debug.log*
