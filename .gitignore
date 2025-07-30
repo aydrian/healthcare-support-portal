@@ -20,7 +20,9 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# Python lib directories (but not frontend lib directories)
+**/lib/
+!services/frontend_service/**/lib/
 lib64/
 parts/
 sdist/
@@ -231,8 +233,25 @@ core.*
 .vscode/extensions.json
 .history/
 
-# Dependency directories that might be created
-node_modules/ # if you add any frontend components later
+# Node.js and Frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Frontend build outputs
+dist/
+build/
+.react-router/
+
+# Frontend environment files
+services/frontend_service/.env
+services/frontend_service/.env.local
+services/frontend_service/.env.development.local
+services/frontend_service/.env.test.local
+services/frontend_service/.env.production.local
 
 # Local environment files per service
 services/auth_service/.env
@@ -241,3 +260,5 @@ services/rag_service/.env
 
 # Generated documentation
 site/
+
+CLAUDE.md
