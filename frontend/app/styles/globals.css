@@ -137,7 +137,7 @@ body {
 
 /* Patient card styles */
 .patient-card {
-  @apply healthcare-card hover:shadow-md transition-shadow cursor-pointer;
+  @apply bg-white border border-gray-200 rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow cursor-pointer;
 }
 
 .patient-card-priority-high {
@@ -182,7 +182,7 @@ body {
 /* High contrast mode support */
 @media (prefers-contrast: high) {
   .healthcare-card {
-    @apply border-2 border-gray-400;
+    @apply bg-white border-2 border-gray-400 rounded-lg shadow-sm p-6;
   }
   
   .role-badge-doctor {
@@ -214,7 +214,7 @@ body {
   }
   
   .healthcare-card {
-    @apply border border-gray-400 break-inside-avoid;
+    @apply bg-white border border-gray-400 rounded-lg shadow-sm p-6 break-inside-avoid;
   }
   
   .patient-card {

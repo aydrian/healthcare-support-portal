@@ -35,29 +35,50 @@ if ! docker ps | grep -q postgres; then
     sleep 5
 fi
 
-# Start services in background
+# Create logs directory if it doesn't exist
+echo "📁 Creating logs directory..."
+if ! mkdir -p logs 2>/dev/null; then
+    echo "⚠️  Warning: Could not create logs directory. Output will go to console."
+    LOG_TO_FILE=false
+else
+    LOG_TO_FILE=true
+fi
+
+# Get absolute path for logs
+ROOT_DIR=$(pwd)
+
+# Start services in background using subshells to avoid directory changes
 echo "🔐 Starting Auth Service..."
-cd packages/auth && ./run.sh > ../../logs/auth.log 2>&1 &
+if [ "$LOG_TO_FILE" = true ]; then
+    (cd packages/auth && ./run.sh) > "$ROOT_DIR/logs/auth.log" 2>&1 &
+else
+    (cd packages/auth && ./run.sh) &
+fi
 AUTH_PID=$!
-cd ../..
 
 echo "🏥 Starting Patient Service..."
-cd packages/patient && ./run.sh > ../../logs/patient.log 2>&1 &
+if [ "$LOG_TO_FILE" = true ]; then
+    (cd packages/patient && ./run.sh) > "$ROOT_DIR/logs/patient.log" 2>&1 &
+else
+    (cd packages/patient && ./run.sh) &
+fi
 PATIENT_PID=$!
-cd ../..
 
 echo "🤖 Starting RAG Service..."
-cd packages/rag && ./run.sh > ../../logs/rag.log 2>&1 &
+if [ "$LOG_TO_FILE" = true ]; then
+    (cd packages/rag && ./run.sh) > "$ROOT_DIR/logs/rag.log" 2>&1 &
+else
+    (cd packages/rag && ./run.sh) &
+fi
 RAG_PID=$!
-cd ../..
 
 echo "🌐 Starting Frontend Service..."
-cd frontend && ./run.sh > ../logs/frontend.log 2>&1 &
+if [ "$LOG_TO_FILE" = true ]; then
+    (cd frontend && ./run.sh) > "$ROOT_DIR/logs/frontend.log" 2>&1 &
+else
+    (cd frontend && ./run.sh) &
+fi
 FRONTEND_PID=$!
-cd ..
-
-# Create logs directory if it doesn't exist
-mkdir -p logs
 
 echo ""
 echo "✅ All services started!"
@@ -72,16 +93,23 @@ echo "   Frontend Service: $FRONTEND_PID"
 echo "   Auth Service: $AUTH_PID"
 echo "   Patient Service: $PATIENT_PID"
 echo "   RAG Service: $RAG_PID"
-echo ""
-echo "📄 Logs are available in the logs/ directory"
+if [ "$LOG_TO_FILE" = true ]; then
+    echo "📄 Logs are available in the logs/ directory"
+else
+    echo "📄 Service output is displayed in console"
+fi
 echo "🛑 To stop all services, run: ./stop_all.sh"
 echo ""
 
-# Save PIDs for stopping later
-echo "$FRONTEND_PID" > logs/frontend.pid
-echo "$AUTH_PID" > logs/auth.pid
-echo "$PATIENT_PID" > logs/patient.pid
-echo "$RAG_PID" > logs/rag.pid
+# Save PIDs for stopping later (create logs directory if needed for PID files)
+if [ "$LOG_TO_FILE" = true ] || mkdir -p logs 2>/dev/null; then
+    echo "$FRONTEND_PID" > logs/frontend.pid
+    echo "$AUTH_PID" > logs/auth.pid
+    echo "$PATIENT_PID" > logs/patient.pid
+    echo "$RAG_PID" > logs/rag.pid
+else
+    echo "⚠️  Warning: Could not save PID files. You'll need to stop services manually."
+fi
 
 # Wait for user input
 echo "Press Ctrl+C to stop all services..."

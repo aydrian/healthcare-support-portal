@@ -42,7 +42,7 @@
     "sonner": "^2.0.6",
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.11",
-    "zod": "^4.0.14"
+    "zod": "^3.25.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.11",

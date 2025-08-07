@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from oso import Oso
 from sqlalchemy_oso import SQLAlchemyOso
 
-from common.db import create_tables
+from common.db import enable_extensions, create_tables
 from common.models import User, Patient, Document
 from .config import settings
 from .routers import patients
@@ -48,7 +48,8 @@ app.include_router(patients.router, prefix="/api/v1/patients", tags=["Patients"]
 
 @app.on_event("startup")
 async def startup_event():
-    """Create database tables on startup"""
+    """Enable extensions and create database tables on startup"""
+    enable_extensions()
     create_tables()
     print(f"🚀 {settings.app_name} started on port {settings.port}")
 

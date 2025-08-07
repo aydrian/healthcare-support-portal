@@ -17,8 +17,11 @@ class Settings(BaseSettings):
     secret_key: str = os.getenv("SECRET_KEY", "your-secret-key-here")
     access_token_expire_minutes: int = 30
 
-    # Oso
-    policy_path: str = "../../common/src/common/policies/authorization.polar"
+    # Oso - Use absolute path from project root
+    policy_path: str = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))),
+        "packages", "common", "src", "common", "policies", "authorization.polar"
+    )
 
     class Config:
         env_file = ".env"

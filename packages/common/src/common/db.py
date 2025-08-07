@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 # Database configuration
@@ -21,6 +21,19 @@ def get_db():
         yield db
     finally:
         db.close()
+
+# Function to enable PostgreSQL extensions
+def enable_extensions():
+    """Enable required PostgreSQL extensions (pgvector for embeddings)"""
+    try:
+        with engine.begin() as conn:
+            # Enable pgvector extension for vector similarity search
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+            print("✅ PostgreSQL extensions enabled successfully")
+    except Exception as e:
+        print(f"⚠️  Warning: Could not enable extensions: {e}")
+        # Don't raise the exception - let the service continue
+        # Extensions might already be enabled or the database might not support them
 
 # Function to create all tables
 def create_tables():

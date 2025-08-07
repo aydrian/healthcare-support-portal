@@ -5,7 +5,7 @@ allow(user, "read", resource: User) if
     user.id = resource.id;
 
 # Admins can read any user
-allow(user, "read", resource: User) if
+allow(user, "read", _resource: User) if
     user.role = "admin";
 
 # Patient access rules
@@ -15,11 +15,11 @@ allow(user, "read", patient: Patient) if
 allow(user, "read", patient: Patient) if
     user.role = "nurse" and patient.department = user.department;
 
-allow(user, "read", patient: Patient) if
+allow(user, "read", _patient: Patient) if
     user.role = "admin";
 
 # Document access rules
-allow(user, "read", document: Document) if
+allow(user, "read", _document: Document) if
     user.role = "admin";
 
 # Doctors can read documents for their patients
@@ -34,8 +34,8 @@ allow(user, "read", document: Document) if
     not document.is_sensitive;
 
 # Users can read general documents (not patient-specific)
-allow(user, "read", document: Document) if
-    document.patient_id = null and 
+allow(_user, "read", document: Document) if
+    document.patient_id = nil and 
     not document.is_sensitive;
 
 # Write permissions (more restrictive)
@@ -46,5 +46,5 @@ allow(user, "write", document: Document) if
     user.role = "doctor" and 
     document.patient.assigned_doctor_id = user.id;
 
-allow(user, "write", resource) if
+allow(user, "write", _resource) if
     user.role = "admin";

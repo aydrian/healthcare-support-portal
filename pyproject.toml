@@ -4,6 +4,9 @@ version = "0.1.0"
 description = "Healthcare Support Portal - Microservices RAG Application"
 readme = "README.md"
 requires-python = ">=3.11"
+dependencies = [
+    "psycopg2-binary>=2.9.10",
+]
 
 [tool.uv.workspace]
 members = [

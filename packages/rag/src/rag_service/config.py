@@ -28,8 +28,11 @@ class Settings(BaseSettings):
     similarity_threshold: float = 0.7
     max_results: int = 5
 
-    # Oso
-    policy_path: str = "../../common/src/common/policies/authorization.polar"
+    # Oso - Use absolute path from project root
+    policy_path: str = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))),
+        "packages", "common", "src", "common", "policies", "authorization.polar"
+    )
 
     class Config:
         env_file = ".env"
