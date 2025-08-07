@@ -8,6 +8,7 @@ sys.path.insert(0, str(common_path))
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Query, UploadFile, File
 from sqlalchemy.orm import Session
+from sqlalchemy_oso_cloud import authorized, get_oso
 
 from common.db import get_db
 from common.models import User, Document
@@ -32,20 +33,18 @@ async def list_documents(
     """
     List documents with Oso authorization filtering
     """
-    oso = request.app.state.oso
-
-    # Use Oso to filter documents the current user can read
-    authorized_query = oso.authorized_query(current_user, "read", Document, session=db)
+    # Use Oso Cloud to filter documents the current user can read
+    query = db.query(Document).options(*authorized(current_user, "read", Document))
 
     # Apply optional filters
     if document_type:
-        authorized_query = authorized_query.filter(Document.document_type == document_type)
+        query = query.filter(Document.document_type == document_type)
 
     if department:
-        authorized_query = authorized_query.filter(Document.department == department)
+        query = query.filter(Document.department == department)
 
     # Apply pagination
-    documents = authorized_query.offset(skip).limit(limit).all()
+    documents = query.offset(skip).limit(limit).all()
 
     return documents
 
@@ -59,7 +58,7 @@ async def get_document(
     """
     Get specific document with Oso authorization
     """
-    oso = request.app.state.oso
+    oso = get_oso()
 
     # Get the document
     document = db.query(Document).filter(Document.id == document_id).first()
@@ -70,7 +69,7 @@ async def get_document(
         )
 
     # Check if current user is authorized to read this document
-    if not oso.is_allowed(current_user, "read", document):
+    if not oso.authorize(current_user, "read", document):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to access this document"
@@ -209,7 +208,7 @@ async def delete_document(
     """
     Delete document (admin only)
     """
-    oso = request.app.state.oso
+    oso = get_oso()
 
     # Get the document
     document = db.query(Document).filter(Document.id == document_id).first()
@@ -220,7 +219,7 @@ async def delete_document(
         )
 
     # Check if current user is authorized to write this document
-    if not oso.is_allowed(current_user, "write", document):
+    if not oso.authorize(current_user, "write", document):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to delete this document"

@@ -7,28 +7,23 @@ sys.path.insert(0, str(common_path))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from oso import Oso
-from sqlalchemy_oso import SQLAlchemyOso
+import sqlalchemy_oso_cloud
 import openai
 
 from common.db import enable_extensions, create_tables
-from common.models import User, Patient, Document
+from common.models import User, Patient, Document, Base
 from .config import settings
 from .routers import documents, chat
 
 # Set OpenAI API key
 openai.api_key = settings.openai_api_key
 
-# Initialize Oso
-oso = Oso()
-oso.register_class(User)
-oso.register_class(Patient) 
-oso.register_class(Document)
-oso.load_file(settings.policy_path)
-
-# Initialize SQLAlchemy Oso
-sqlalchemy_oso = SQLAlchemyOso(oso)
-sqlalchemy_oso.register_models([User, Patient, Document])
+# Initialize SQLAlchemy Oso Cloud with registry and server settings
+sqlalchemy_oso_cloud.init(
+    Base.registry,
+    url=settings.oso_server_url,
+    api_key="e_0123456789_12345_osotesttoken01xiIn"
+)
 
 # Create FastAPI app
 app = FastAPI(
@@ -70,6 +65,6 @@ async def root():
 async def health_check():
     return {"status": "healthy"}
 
-# Make oso and settings available to routes
-app.state.oso = oso
+# Make Oso Cloud instance and settings available to routes
+app.state.oso_sqlalchemy = sqlalchemy_oso_cloud
 app.state.settings = settings

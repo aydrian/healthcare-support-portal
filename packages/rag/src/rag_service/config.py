@@ -28,11 +28,8 @@ class Settings(BaseSettings):
     similarity_threshold: float = 0.7
     max_results: int = 5
 
-    # Oso - Use absolute path from project root
-    policy_path: str = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))),
-        "packages", "common", "src", "common", "policies", "authorization.polar"
-    )
+    # Oso Dev Server
+    oso_server_url: str = os.getenv("OSO_SERVER_URL", "http://oso:8080")
 
     class Config:
         env_file = ".env"

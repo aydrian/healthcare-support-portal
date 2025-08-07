@@ -2,10 +2,11 @@ from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Bool
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.sql import func
 from pgvector.sqlalchemy import Vector
+from sqlalchemy_oso_cloud.oso import Resource
 
 Base = declarative_base()
 
-class User(Base):
+class User(Base, Resource):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -20,7 +21,7 @@ class User(Base):
     # Relationships
     assigned_patients = relationship("Patient", back_populates="assigned_doctor")
 
-class Patient(Base):
+class Patient(Base, Resource):
     __tablename__ = "patients"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -36,7 +37,7 @@ class Patient(Base):
     assigned_doctor = relationship("User", back_populates="assigned_patients")
     documents = relationship("Document", back_populates="patient")
 
-class Document(Base):
+class Document(Base, Resource):
     __tablename__ = "documents"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -54,7 +55,7 @@ class Document(Base):
     created_by = relationship("User")
     embeddings = relationship("Embedding", back_populates="document")
 
-class Embedding(Base):
+class Embedding(Base, Resource):
     __tablename__ = "embeddings"
 
     id = Column(Integer, primary_key=True, index=True)

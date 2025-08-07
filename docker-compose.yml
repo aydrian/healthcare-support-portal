@@ -7,3 +7,14 @@ services:
       POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
+
+  oso:
+    container_name: oso_service
+    image: public.ecr.aws/osohq/dev-server:latest
+    command: --watch-for-changes /authorization.polar
+    ports:
+      - "8080:8080"
+    volumes:
+      - type: bind
+        source: ./authorization.polar
+        target: /authorization.polar

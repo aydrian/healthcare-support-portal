@@ -1,6 +1,7 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
+from sqlalchemy_oso_cloud import authorized, get_oso
 
 from common.db import get_db
 from common.models import User
@@ -20,11 +21,8 @@ async def list_users(
     """
     List users (with Oso authorization)
     """
-    oso = request.app.state.oso
-
-    # Use Oso to filter users the current user can read
-    authorized_query = oso.authorized_query(current_user, "read", User, session=db)
-    users = authorized_query.offset(skip).limit(limit).all()
+    # Use Oso Cloud to filter users the current user can read
+    users = db.query(User).options(*authorized(current_user, "read", User)).offset(skip).limit(limit).all()
 
     return users
 
@@ -38,7 +36,7 @@ async def get_user(
     """
     Get specific user (with Oso authorization)
     """
-    oso = request.app.state.oso
+    oso = get_oso()
 
     # Get the user
     user = db.query(User).filter(User.id == user_id).first()
@@ -49,7 +47,7 @@ async def get_user(
         )
 
     # Check if current user is authorized to read this user
-    if not oso.is_allowed(current_user, "read", user):
+    if not oso.authorize(current_user, "read", user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to access this user"
@@ -68,7 +66,7 @@ async def update_user(
     """
     Update user (with Oso authorization)
     """
-    oso = request.app.state.oso
+    oso = get_oso()
 
     # Get the user
     user = db.query(User).filter(User.id == user_id).first()
@@ -79,7 +77,7 @@ async def update_user(
         )
 
     # Check if current user is authorized to write this user
-    if not oso.is_allowed(current_user, "write", user):
+    if not oso.authorize(current_user, "write", user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to update this user"

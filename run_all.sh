@@ -1,5 +1,5 @@
 #!/bin/bash
-# run_all.sh - Start all Healthcare Support Portal services
+# run_all.sh - Start all Healthcare Support Portal services and infrastructure
 
 echo "🏥 Healthcare Support Portal - Starting All Services"
 echo "=================================================="
@@ -23,16 +23,25 @@ check_port 8002 || exit 1
 check_port 8003 || exit 1
 check_port 3000 || exit 1
 
+# Special handling for port 8080 (Oso Dev Server) - informational only
+if lsof -Pi :8080 -sTCP:LISTEN -t >/dev/null 2>&1; then
+    echo "ℹ️  Port 8080 is in use (Oso Dev Server likely running)"
+else
+    echo "✅ Port 8080 is available"
+fi
+
 echo ""
 echo "🚀 Starting services..."
 
-# Start database if not running
-echo "🗄️  Checking database..."
-if ! docker ps | grep -q postgres; then
-    echo "Starting PostgreSQL database..."
-    docker-compose up -d db
-    echo "Waiting for database to be ready..."
-    sleep 5
+# Start infrastructure services if not running
+echo "🏗️  Checking infrastructure services..."
+if ! docker ps | grep -q healthcare-support-portal; then
+    echo "Starting PostgreSQL database and Oso Dev Server..."
+    docker-compose up -d
+    echo "Waiting for infrastructure services to be ready..."
+    sleep 8
+else
+    echo "✅ Infrastructure services (PostgreSQL + Oso Dev Server) are already running"
 fi
 
 # Create logs directory if it doesn't exist
@@ -87,6 +96,7 @@ echo "🌐 Frontend:        http://localhost:3000"
 echo "🔐 Auth Service:    http://localhost:8001/docs"
 echo "🏥 Patient Service: http://localhost:8002/docs"
 echo "🤖 RAG Service:     http://localhost:8003/docs"
+echo "⚖️  Oso Dev Server:  http://localhost:8080"
 echo ""
 echo "📋 Service PIDs:"
 echo "   Frontend Service: $FRONTEND_PID"

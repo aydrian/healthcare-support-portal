@@ -9,6 +9,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from sqlalchemy_oso_cloud import authorized, get_oso
 import openai
 
 from common.db import get_db
@@ -54,10 +55,9 @@ async def search_documents(
     Search documents using vector similarity
     """
     settings = request.app.state.settings
-    oso = request.app.state.oso
 
-    # Get authorized document IDs
-    authorized_query = oso.authorized_query(current_user, "read", Document, session=db)
+    # Get authorized documents query
+    authorized_query = db.query(Document).options(*authorized(current_user, "read", Document))
 
     # Apply filters
     if search_request.document_types:
@@ -102,10 +102,9 @@ async def ask_question(
     Ask a question and get an AI-powered response with RAG
     """
     settings = request.app.state.settings
-    oso = request.app.state.oso
 
     # Get authorized documents for context
-    authorized_query = oso.authorized_query(current_user, "read", Document, session=db)
+    authorized_query = db.query(Document).options(*authorized(current_user, "read", Document))
 
     # Apply context filters if provided
     if chat_request.context_patient_id:

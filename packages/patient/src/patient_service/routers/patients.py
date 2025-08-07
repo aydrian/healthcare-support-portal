@@ -8,6 +8,7 @@ sys.path.insert(0, str(common_path))
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
 from sqlalchemy.orm import Session
+from sqlalchemy_oso_cloud import authorized, get_oso
 
 from common.db import get_db
 from common.models import User, Patient
@@ -28,17 +29,15 @@ async def list_patients(
     """
     List patients with Oso authorization filtering
     """
-    oso = request.app.state.oso
-
-    # Use Oso to filter patients the current user can read
-    authorized_query = oso.authorized_query(current_user, "read", Patient, session=db)
+    # Use Oso Cloud to filter patients the current user can read
+    query = db.query(Patient).options(*authorized(current_user, "read", Patient))
 
     # Apply optional department filter
     if department:
-        authorized_query = authorized_query.filter(Patient.department == department)
+        query = query.filter(Patient.department == department)
 
     # Apply pagination
-    patients = authorized_query.offset(skip).limit(limit).all()
+    patients = query.offset(skip).limit(limit).all()
 
     return patients
 
@@ -52,7 +51,7 @@ async def get_patient(
     """
     Get specific patient with Oso authorization
     """
-    oso = request.app.state.oso
+    oso = get_oso()
 
     # Get the patient
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
@@ -63,7 +62,7 @@ async def get_patient(
         )
 
     # Check if current user is authorized to read this patient
-    if not oso.is_allowed(current_user, "read", patient):
+    if not oso.authorize(current_user, "read", patient):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to access this patient"
@@ -81,7 +80,7 @@ async def create_patient(
     """
     Create a new patient
     """
-    oso = request.app.state.oso
+    oso = request.app.state.oso_sqlalchemy
 
     # Check if medical record number already exists
     existing_patient = db.query(Patient).filter(
@@ -140,7 +139,7 @@ async def update_patient(
     """
     Update patient with Oso authorization
     """
-    oso = request.app.state.oso
+    oso = get_oso()
 
     # Get the patient
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
@@ -151,7 +150,7 @@ async def update_patient(
         )
 
     # Check if current user is authorized to write this patient
-    if not oso.is_allowed(current_user, "write", patient):
+    if not oso.authorize(current_user, "write", patient):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to update this patient"
@@ -191,7 +190,7 @@ async def delete_patient(
     """
     Soft delete patient (set is_active to False)
     """
-    oso = request.app.state.oso
+    oso = get_oso()
 
     # Get the patient
     patient = db.query(Patient).filter(Patient.id == patient_id).first()
@@ -202,7 +201,7 @@ async def delete_patient(
         )
 
     # Check if current user is authorized to write this patient
-    if not oso.is_allowed(current_user, "write", patient):
+    if not oso.authorize(current_user, "write", patient):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to delete this patient"
@@ -226,13 +225,8 @@ async def search_patients_by_department(
     """
     Search patients by department with authorization
     """
-    oso = request.app.state.oso
-
-    # Use Oso to filter patients the current user can read
-    authorized_query = oso.authorized_query(current_user, "read", Patient, session=db)
-
-    # Filter by department
-    patients = authorized_query.filter(
+    # Use Oso Cloud to filter patients the current user can read
+    patients = db.query(Patient).options(*authorized(current_user, "read", Patient)).filter(
         Patient.department == department,
         Patient.is_active == True
     ).offset(skip).limit(limit).all()

@@ -82,16 +82,21 @@ Healthcare Support Portal
 │   └── 📚 common/
 │       ├── Shared models & database schema
 │       ├── Authentication utilities
-│       ├── Oso authorization policies
 │       └── Pydantic schemas
 │
 ├── 🌐 frontend/ (Port 3000)
 │   └── React Router 7 + Vite web application
 │
-└── 🗄️ PostgreSQL + pgvector
-    ├── User, Patient, Document tables
-    ├── Vector embeddings storage
-    └── Oso policy enforcement
+├── 🗄️ PostgreSQL + pgvector (Port 5432)
+│   ├── User, Patient, Document tables
+│   └── Vector embeddings storage
+│
+├── ⚖️ Oso Dev Server (Port 8080)
+│   ├── Centralized policy management
+│   ├── Hot-reloading during development
+│   └── Authorization policy enforcement
+│
+└── authorization.polar              # Oso authorization policies
 ```
 
 ## 🚀 Quick Start
@@ -130,13 +135,17 @@ nano packages/rag/.env
 # Set: OPENAI_API_KEY=sk-your-actual-api-key-here
 ```
 
-### 3. Start Database
+### 3. Start Infrastructure Services
 
 ```bash
-# Start PostgreSQL with pgvector
-docker-compose up -d db
+# Start PostgreSQL with pgvector and Oso Dev Server
+docker-compose up -d
 
-# Wait for database to be ready (about 10 seconds)
+# This starts:
+# - PostgreSQL database with pgvector (port 5432)
+# - Oso Dev Server with policy hot-reloading (port 8080)
+
+# Wait for services to be ready (about 15 seconds)
 ```
 
 ### 4. Install Dependencies
@@ -169,6 +178,7 @@ Visit the application and API documentation:
 - **🔐 Auth Service API:** http://localhost:8001/docs
 - **🏥 Patient Service API:** http://localhost:8002/docs
 - **🤖 RAG Service API:** http://localhost:8003/docs
+- **⚖️ Oso Dev Server:** http://localhost:8080 (policy management)
 
 ## 🎯 Services
 
@@ -341,9 +351,7 @@ healthcare-support-portal/
 │   │   │   ├── models.py      # SQLAlchemy models
 │   │   │   ├── db.py          # Database utilities
 │   │   │   ├── auth.py        # Authentication utilities
-│   │   │   ├── schemas.py     # Pydantic schemas
-│   │   │   └── policies/
-│   │   │       └── authorization.polar  # Oso policies
+│   │   │   └── schemas.py     # Pydantic schemas
 │   │   └── pyproject.toml
 │   ├── auth/                   # Authentication service
 │   ├── patient/                # Patient management service
@@ -352,9 +360,10 @@ healthcare-support-portal/
 │   ├── app/                    # Application source
 │   ├── package.json
 │   └── vite.config.ts
+├── authorization.polar         # Oso authorization policies
 ├── pyproject.toml              # Workspace configuration
 ├── uv.lock                     # Single lockfile for Python
-├── docker-compose.yml          # Database setup
+├── docker-compose.yml          # Infrastructure services setup
 ├── run_all.sh                  # Start all services
 ├── stop_all.sh                 # Stop all services
 └── setup.sh                    # Initial project setup
@@ -378,7 +387,7 @@ pkill -f "auth_service"
 ### Adding New Features
 
 1. **Models:** Add to `packages/common/src/common/models.py`
-2. **Policies:** Update `packages/common/src/common/policies/authorization.polar`
+2. **Policies:** Update `authorization.polar` (policies hot-reload via Oso Dev Server)
 3. **APIs:** Add endpoints to appropriate service routers
 4. **Frontend:** Add React components in `frontend/app/`
 5. **Tests:** Add tests in service directories (when implemented)
