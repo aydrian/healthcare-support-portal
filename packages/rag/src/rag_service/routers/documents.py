@@ -14,6 +14,7 @@ from common.db import get_db
 from common.models import User, Document
 from common.auth import get_current_user
 from common.schemas import DocumentResponse, DocumentCreate
+from common.oso_sync import sync_document_access, remove_document_access
 
 from ..utils.text_processing import clean_text, chunk_text
 from ..utils.embeddings import store_document_embeddings
@@ -34,7 +35,7 @@ async def list_documents(
     List documents with Oso authorization filtering
     """
     # Use Oso Cloud to filter documents the current user can read
-    query = db.query(Document).options(*authorized(current_user, "read", Document))
+    query = db.query(Document).options(authorized(current_user, "read", Document))
 
     # Apply optional filters
     if document_type:
@@ -127,6 +128,12 @@ async def create_document(
 
     if not embedding_success:
         print(f"Warning: Failed to generate embeddings for document {db_document.id}")
+    
+    # Sync OSO facts for new document
+    try:
+        sync_document_access(db_document)
+    except Exception as e:
+        print(f"Warning: Failed to sync OSO facts for new document {db_document.id}: {e}")
 
     return db_document
 
@@ -195,6 +202,12 @@ async def upload_document(
 
     if not embedding_success:
         print(f"Warning: Failed to generate embeddings for document {db_document.id}")
+    
+    # Sync OSO facts for uploaded document
+    try:
+        sync_document_access(db_document)
+    except Exception as e:
+        print(f"Warning: Failed to sync OSO facts for uploaded document {db_document.id}: {e}")
 
     return db_document
 
@@ -225,6 +238,12 @@ async def delete_document(
             detail="Not authorized to delete this document"
         )
 
+    # Remove OSO facts before deleting document
+    try:
+        remove_document_access(document.id)
+    except Exception as e:
+        print(f"Warning: Failed to remove OSO facts for document {document.id}: {e}")
+    
     # Delete document and its embeddings (cascade)
     db.delete(document)
     db.commit()

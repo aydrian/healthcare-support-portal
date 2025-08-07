@@ -8,6 +8,9 @@ Base = declarative_base()
 
 class User(Base, Resource):
     __tablename__ = "users"
+    
+    # OSO Cloud type identifier
+    type = "User"
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, index=True, nullable=False)
@@ -23,6 +26,9 @@ class User(Base, Resource):
 
 class Patient(Base, Resource):
     __tablename__ = "patients"
+    
+    # OSO Cloud type identifier
+    type = "Patient"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
@@ -39,6 +45,9 @@ class Patient(Base, Resource):
 
 class Document(Base, Resource):
     __tablename__ = "documents"
+    
+    # OSO Cloud type identifier
+    type = "Document"
 
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(200), nullable=False)
@@ -57,6 +66,9 @@ class Document(Base, Resource):
 
 class Embedding(Base, Resource):
     __tablename__ = "embeddings"
+    
+    # OSO Cloud type identifier
+    type = "Embedding"
 
     id = Column(Integer, primary_key=True, index=True)
     document_id = Column(Integer, ForeignKey("documents.id"), nullable=False)

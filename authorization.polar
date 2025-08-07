@@ -1,50 +1,191 @@
 # Healthcare Support Portal Authorization Policies
+# OSO Cloud Policy File
 
-# Users can read their own information
-allow(user, "read", resource: User) if
-    user.id = resource.id;
+# ============================================================================
+# ACTOR DEFINITIONS
+# ============================================================================
 
-# Admins can read any user
-allow(user, "read", _resource: User) if
-    user.role = "admin";
+actor User {}
 
-# Patient access rules
-allow(user, "read", patient: Patient) if
-    user.role = "doctor" and patient.assigned_doctor_id = user.id;
+# ============================================================================
+# RESOURCE DEFINITIONS
+# ============================================================================
 
-allow(user, "read", patient: Patient) if
-    user.role = "nurse" and patient.department = user.department;
+resource User {
+    permissions = ["read", "write", "delete"];
+    roles = ["admin"];
+    
+    # Admins can do everything with users
+    "read" if "admin";
+    "write" if "admin"; 
+    "delete" if "admin";
+}
 
-allow(user, "read", _patient: Patient) if
-    user.role = "admin";
+resource Patient {
+    permissions = ["read", "write", "delete"];
+    roles = ["admin", "assigned_doctor", "department_nurse"];
+    
+    # Admins can do everything with patients
+    "read" if "admin";
+    "write" if "admin";
+    "delete" if "admin";
+    
+    # Doctors can access their assigned patients
+    "read" if "assigned_doctor";
+    "write" if "assigned_doctor";
+    
+    # Nurses can access patients in their department  
+    "read" if "department_nurse";
+}
 
-# Document access rules
-allow(user, "read", _document: Document) if
-    user.role = "admin";
+resource Document {
+    permissions = ["read", "write", "delete", "share"];
+    roles = ["admin", "owner", "patient_doctor", "department_staff"];
+    
+    # Admins can do everything with documents
+    "read" if "admin";
+    "write" if "admin";
+    "delete" if "admin";
+    "share" if "admin";
+    
+    # Document owner can do everything
+    "read" if "owner";
+    "write" if "owner";
+    "delete" if "owner";
+    "share" if "owner";
+    
+    # Doctors can access documents for their patients
+    "read" if "patient_doctor";
+    "write" if "patient_doctor";
+    
+    # Department staff can read non-sensitive documents in their department
+    "read" if "department_staff";
+}
 
-# Doctors can read documents for their patients
-allow(user, "read", document: Document) if
-    user.role = "doctor" and 
-    document.patient.assigned_doctor_id = user.id;
+resource Embedding {
+    permissions = ["read", "write", "delete"];
+    roles = ["admin"];
+    
+    # Only admins can manage embeddings directly
+    "read" if "admin";
+    "write" if "admin";
+    "delete" if "admin";
+}
 
-# Nurses can read non-sensitive documents in their department
-allow(user, "read", document: Document) if
-    user.role = "nurse" and 
-    document.department = user.department and 
-    not document.is_sensitive;
+# ============================================================================
+# FACT DECLARATIONS
+# ============================================================================
 
-# Users can read general documents (not patient-specific)
-allow(_user, "read", document: Document) if
-    document.patient_id = nil and 
-    not document.is_sensitive;
+# Declare the fact patterns we use in authorization
+declare has_role(User, String, User);
+declare has_role(User, String, Patient); 
+declare has_role(User, String, Document);
+declare has_role(User, String, Embedding);
 
-# Write permissions (more restrictive)
-allow(user, "write", patient: Patient) if
-    user.role = "doctor" and patient.assigned_doctor_id = user.id;
+# ============================================================================
+# MAIN AUTHORIZATION RULE
+# ============================================================================
 
-allow(user, "write", document: Document) if
-    user.role = "doctor" and 
-    document.patient.assigned_doctor_id = user.id;
+allow(actor, action, resource) if 
+    has_permission(actor, action, resource);
 
-allow(user, "write", _resource) if
-    user.role = "admin";
+# ============================================================================
+# TESTS
+# ============================================================================
+
+test "admin can read all patients" {
+    setup {
+        has_role(User{"admin_wilson"}, "admin", Patient{"patient_1"});
+        has_role(User{"admin_wilson"}, "admin", Patient{"patient_2"});
+        has_role(User{"admin_wilson"}, "admin", Patient{"patient_3"});
+    }
+    
+    assert allow(User{"admin_wilson"}, "read", Patient{"patient_1"});
+    assert allow(User{"admin_wilson"}, "read", Patient{"patient_2"}); 
+    assert allow(User{"admin_wilson"}, "read", Patient{"patient_3"});
+    assert allow(User{"admin_wilson"}, "write", Patient{"patient_1"});
+    assert allow(User{"admin_wilson"}, "delete", Patient{"patient_1"});
+}
+
+test "admin can read all documents" {
+    setup {
+        has_role(User{"admin_wilson"}, "admin", Document{"doc_1"});
+        has_role(User{"admin_wilson"}, "admin", Document{"doc_2"});
+    }
+    
+    assert allow(User{"admin_wilson"}, "read", Document{"doc_1"});
+    assert allow(User{"admin_wilson"}, "write", Document{"doc_1"});
+    assert allow(User{"admin_wilson"}, "delete", Document{"doc_1"});
+    assert allow(User{"admin_wilson"}, "share", Document{"doc_1"});
+}
+
+test "doctor can read assigned patients only" {
+    setup {
+        has_role(User{"doctor_smith"}, "assigned_doctor", Patient{"assigned_patient"});
+    }
+    
+    assert allow(User{"doctor_smith"}, "read", Patient{"assigned_patient"});
+    assert allow(User{"doctor_smith"}, "write", Patient{"assigned_patient"});
+    assert_not allow(User{"doctor_smith"}, "read", Patient{"other_patient"});
+}
+
+test "nurse can read department patients but not write" {
+    setup {
+        has_role(User{"nurse_jones"}, "department_nurse", Patient{"dept_patient"});
+    }
+    
+    assert allow(User{"nurse_jones"}, "read", Patient{"dept_patient"});
+    assert_not allow(User{"nurse_jones"}, "write", Patient{"dept_patient"});
+    assert_not allow(User{"nurse_jones"}, "read", Patient{"other_dept_patient"});
+}
+
+test "doctor can read documents for their patients" {
+    setup {
+        has_role(User{"doctor_smith"}, "patient_doctor", Document{"patient_doc"});
+    }
+    
+    assert allow(User{"doctor_smith"}, "read", Document{"patient_doc"});
+    assert allow(User{"doctor_smith"}, "write", Document{"patient_doc"});
+    assert_not allow(User{"doctor_smith"}, "delete", Document{"patient_doc"});
+}
+
+test "nurse can read non-sensitive department documents" {
+    setup {
+        has_role(User{"nurse_jones"}, "department_staff", Document{"dept_doc"});
+    }
+    
+    assert allow(User{"nurse_jones"}, "read", Document{"dept_doc"});
+    assert_not allow(User{"nurse_jones"}, "write", Document{"dept_doc"});
+}
+
+test "users can read their own information" {
+    setup {
+        has_role(User{"doctor_smith"}, "admin", User{"doctor_smith"});
+    }
+    
+    assert allow(User{"doctor_smith"}, "read", User{"doctor_smith"});
+    assert allow(User{"doctor_smith"}, "write", User{"doctor_smith"});
+    assert_not allow(User{"doctor_smith"}, "read", User{"other_user"});
+}
+
+test "document owners have full control" {
+    setup {
+        has_role(User{"doctor_smith"}, "owner", Document{"created_doc"});
+    }
+    
+    assert allow(User{"doctor_smith"}, "read", Document{"created_doc"});
+    assert allow(User{"doctor_smith"}, "write", Document{"created_doc"});
+    assert allow(User{"doctor_smith"}, "delete", Document{"created_doc"});
+    assert allow(User{"doctor_smith"}, "share", Document{"created_doc"});
+}
+
+test "only admins can manage embeddings" {
+    setup {
+        has_role(User{"admin_wilson"}, "admin", Embedding{"embedding_1"});
+    }
+    
+    assert allow(User{"admin_wilson"}, "read", Embedding{"embedding_1"});
+    assert allow(User{"admin_wilson"}, "write", Embedding{"embedding_1"});
+    assert allow(User{"admin_wilson"}, "delete", Embedding{"embedding_1"});
+    assert_not allow(User{"doctor_smith"}, "read", Embedding{"embedding_1"});
+}

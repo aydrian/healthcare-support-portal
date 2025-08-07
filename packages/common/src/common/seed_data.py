@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from .db import SessionLocal, enable_extensions, create_tables
 from .models import User, Patient, Document
 from .auth import get_password_hash
+from .oso_sync import sync_admin_global_access, sync_patient_access, sync_document_access
 
 
 def seed_users(db: Session) -> Dict[str, User]:
@@ -52,6 +53,14 @@ def seed_users(db: Session) -> Dict[str, User]:
         if existing_user:
             print(f"✅ User '{user_data['username']}' already exists, skipping")
             created_users[user_data["username"]] = existing_user
+            
+            # Sync OSO facts for existing admin users (in case they weren't synced before)
+            if existing_user.role == "admin":
+                try:
+                    sync_admin_global_access(existing_user)
+                    print(f"🔐 Synced admin access facts for existing user {user_data['username']}")
+                except Exception as e:
+                    print(f"⚠️  Failed to sync OSO facts for existing user {user_data['username']}: {e}")
             continue
             
         # Check if email already exists
@@ -77,6 +86,14 @@ def seed_users(db: Session) -> Dict[str, User]:
         
         created_users[user_data["username"]] = new_user
         print(f"✅ Created user: {user_data['full_name']} ({user_data['username']})")
+        
+        # Sync OSO facts for admin users
+        if new_user.role == "admin":
+            try:
+                sync_admin_global_access(new_user)
+                print(f"🔐 Synced admin access facts for {user_data['username']}")
+            except Exception as e:
+                print(f"⚠️  Failed to sync OSO facts for {user_data['username']}: {e}")
     
     return created_users
 
@@ -120,6 +137,13 @@ def seed_patients(db: Session, users: Dict[str, User]) -> List[Patient]:
         if existing_patient:
             print(f"✅ Patient '{patient_data['name']}' (MRN: {patient_data['medical_record_number']}) already exists, skipping")
             created_patients.append(existing_patient)
+            
+            # Sync OSO facts for existing patients (in case they weren't synced before)
+            try:
+                sync_patient_access(existing_patient)
+                print(f"🔐 Synced access facts for existing patient {patient_data['name']}")
+            except Exception as e:
+                print(f"⚠️  Failed to sync OSO facts for existing patient {patient_data['name']}: {e}")
             continue
         
         # Create new patient
@@ -138,6 +162,13 @@ def seed_patients(db: Session, users: Dict[str, User]) -> List[Patient]:
         
         created_patients.append(new_patient)
         print(f"✅ Created patient: {patient_data['name']} (MRN: {patient_data['medical_record_number']})")
+        
+        # Sync OSO facts for patient access
+        try:
+            sync_patient_access(new_patient)
+            print(f"🔐 Synced access facts for patient {patient_data['name']}")
+        except Exception as e:
+            print(f"⚠️  Failed to sync OSO facts for patient {patient_data['name']}: {e}")
     
     return created_patients
 
@@ -285,6 +316,13 @@ Remember: You are an important part of your healthcare team!""",
         if existing_doc:
             print(f"✅ Document '{doc_data['title']}' already exists, skipping")
             created_documents.append(existing_doc)
+            
+            # Sync OSO facts for existing documents (in case they weren't synced before)
+            try:
+                sync_document_access(existing_doc)
+                print(f"🔐 Synced access facts for existing document {doc_data['title']}")
+            except Exception as e:
+                print(f"⚠️  Failed to sync OSO facts for existing document {doc_data['title']}: {e}")
             continue
         
         # Create new document
@@ -303,6 +341,13 @@ Remember: You are an important part of your healthcare team!""",
         
         created_documents.append(new_document)
         print(f"✅ Created document: {doc_data['title']}")
+        
+        # Sync OSO facts for document access
+        try:
+            sync_document_access(new_document)
+            print(f"🔐 Synced access facts for document {doc_data['title']}")
+        except Exception as e:
+            print(f"⚠️  Failed to sync OSO facts for document {doc_data['title']}: {e}")
     
     # Create patient-specific documents
     if patients:
@@ -353,6 +398,13 @@ Stable coronary artery disease. Continue current medications. Next follow-up in 
             ).first()
             if existing_doc:
                 print(f"✅ Patient document '{doc_data['title']}' already exists, skipping")
+                
+                # Sync OSO facts for existing patient documents (in case they weren't synced before)
+                try:
+                    sync_document_access(existing_doc)
+                    print(f"🔐 Synced access facts for existing patient document {doc_data['title']}")
+                except Exception as e:
+                    print(f"⚠️  Failed to sync OSO facts for existing patient document {doc_data['title']}: {e}")
                 continue
             
             # Create new patient document
@@ -372,6 +424,13 @@ Stable coronary artery disease. Continue current medications. Next follow-up in 
             
             created_documents.append(new_document)
             print(f"✅ Created patient document: {doc_data['title']}")
+            
+            # Sync OSO facts for patient document access
+            try:
+                sync_document_access(new_document)
+                print(f"🔐 Synced access facts for patient document {doc_data['title']}")
+            except Exception as e:
+                print(f"⚠️  Failed to sync OSO facts for patient document {doc_data['title']}: {e}")
     
     return created_documents
 

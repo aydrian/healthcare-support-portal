@@ -28,8 +28,9 @@ class Settings(BaseSettings):
     similarity_threshold: float = 0.7
     max_results: int = 5
 
-    # Oso Dev Server
-    oso_server_url: str = os.getenv("OSO_SERVER_URL", "http://oso:8080")
+    # Oso Configuration
+    oso_url: str = os.getenv("OSO_URL", "http://localhost:8080")
+    oso_auth: str = os.getenv("OSO_AUTH", "e_0123456789_12345_osotesttoken01xiIn")
 
     class Config:
         env_file = ".env"

@@ -14,6 +14,7 @@ from common.db import get_db
 from common.models import User, Patient
 from common.auth import get_current_user
 from common.schemas import PatientResponse, PatientCreate
+from common.oso_sync import sync_patient_access, remove_patient_access
 
 router = APIRouter()
 
@@ -30,7 +31,7 @@ async def list_patients(
     List patients with Oso authorization filtering
     """
     # Use Oso Cloud to filter patients the current user can read
-    query = db.query(Patient).options(*authorized(current_user, "read", Patient))
+    query = db.query(Patient).options(authorized(current_user, "read", Patient))
 
     # Apply optional department filter
     if department:
@@ -125,6 +126,12 @@ async def create_patient(
     db.add(db_patient)
     db.commit()
     db.refresh(db_patient)
+    
+    # Sync OSO facts for new patient
+    try:
+        sync_patient_access(db_patient)
+    except Exception as e:
+        print(f"Warning: Failed to sync OSO facts for new patient {db_patient.id}: {e}")
 
     return db_patient
 
@@ -169,6 +176,10 @@ async def update_patient(
                 detail="Patient with this medical record number already exists"
             )
 
+    # Track changes for OSO sync
+    old_assigned_doctor_id = patient.assigned_doctor_id
+    old_department = patient.department
+    
     # Update patient fields
     patient.name = patient_update.name
     patient.medical_record_number = patient_update.medical_record_number
@@ -177,6 +188,15 @@ async def update_patient(
 
     db.commit()
     db.refresh(patient)
+    
+    # Sync OSO facts if assignments changed
+    try:
+        if (old_assigned_doctor_id != patient.assigned_doctor_id or 
+            old_department != patient.department):
+            # Resync all patient access facts
+            sync_patient_access(patient)
+    except Exception as e:
+        print(f"Warning: Failed to sync OSO facts for updated patient {patient.id}: {e}")
 
     return patient
 
@@ -210,6 +230,12 @@ async def delete_patient(
     # Soft delete (set is_active to False)
     patient.is_active = False
     db.commit()
+    
+    # Remove OSO facts for deactivated patient
+    try:
+        remove_patient_access(patient.id)
+    except Exception as e:
+        print(f"Warning: Failed to remove OSO facts for deactivated patient {patient.id}: {e}")
 
     return {"message": "Patient deactivated successfully"}
 

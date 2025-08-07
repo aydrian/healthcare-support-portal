@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from common.models import Document, Embedding
+from common.oso_sync import sync_embedding_access
 
 async def generate_embedding(text: str, model: str = "text-embedding-3-small") -> List[float]:
     """Generate embedding for a given text using OpenAI."""
@@ -50,8 +51,15 @@ async def store_document_embeddings(
             )
 
             db.add(db_embedding)
+            db.commit()
+            db.refresh(db_embedding)
+            
+            # Sync OSO facts for new embedding
+            try:
+                sync_embedding_access(db_embedding)
+            except Exception as e:
+                print(f"Warning: Failed to sync OSO facts for embedding {db_embedding.id}: {e}")
 
-        db.commit()
         return True
 
     except Exception as e:

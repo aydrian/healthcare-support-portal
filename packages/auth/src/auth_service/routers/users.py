@@ -7,6 +7,7 @@ from common.db import get_db
 from common.models import User
 from common.auth import get_current_user
 from common.schemas import UserResponse, UserCreate
+from common.oso_sync import sync_user_role_change, sync_department_change, sync_admin_global_access
 
 router = APIRouter()
 
@@ -83,6 +84,10 @@ async def update_user(
             detail="Not authorized to update this user"
         )
 
+    # Track changes for OSO sync
+    old_role = user.role
+    old_department = user.department
+    
     # Update user fields
     user.username = user_update.username
     user.email = user_update.email
@@ -91,5 +96,16 @@ async def update_user(
 
     db.commit()
     db.refresh(user)
+    
+    # Sync OSO facts if role or department changed
+    try:
+        if old_role != user.role:
+            sync_user_role_change(user, old_role)
+        
+        if old_department != user.department:
+            sync_department_change(user, old_department)
+    except Exception as e:
+        # Log the error but don't fail the request
+        print(f"Warning: Failed to sync OSO facts for user {user.id}: {e}")
 
     return user
