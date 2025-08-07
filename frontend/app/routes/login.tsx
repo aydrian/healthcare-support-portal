@@ -192,7 +192,7 @@ export default function Login({ actionData }: LoginProps) {
             <div className="text-xs text-blue-700 space-y-1">
               <div><strong>Doctor:</strong> dr_smith / secure_password</div>
               <div><strong>Nurse:</strong> nurse_johnson / secure_password</div>
-              <div><strong>Admin:</strong> admin_doe / secure_password</div>
+              <div><strong>Admin:</strong> admin_wilson / secure_password</div>
             </div>
           </CardContent>
         </Card>
