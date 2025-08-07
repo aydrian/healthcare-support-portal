@@ -57,7 +57,7 @@ async def search_documents(
     settings = request.app.state.settings
 
     # Get authorized documents query
-    authorized_query = db.query(Document).options(*authorized(current_user, "read", Document))
+    authorized_query = db.query(Document).options(authorized(current_user, "read", Document))
 
     # Apply filters
     if search_request.document_types:
@@ -104,7 +104,7 @@ async def ask_question(
     settings = request.app.state.settings
 
     # Get authorized documents for context
-    authorized_query = db.query(Document).options(*authorized(current_user, "read", Document))
+    authorized_query = db.query(Document).options(authorized(current_user, "read", Document))
 
     # Apply context filters if provided
     if chat_request.context_patient_id:

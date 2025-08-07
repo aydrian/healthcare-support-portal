@@ -23,7 +23,7 @@ async def list_users(
     List users (with Oso authorization)
     """
     # Use Oso Cloud to filter users the current user can read
-    users = db.query(User).options(*authorized(current_user, "read", User)).offset(skip).limit(limit).all()
+    users = db.query(User).options(authorized(current_user, "read", User)).offset(skip).limit(limit).all()
 
     return users
 
