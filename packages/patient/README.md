@@ -24,7 +24,11 @@ The Patient Service manages patient records and information for the Healthcare S
 ### Installation
 
 ```bash
-cd services/patient_service
+# From project root
+uv sync
+
+# Or from package directory
+cd packages/patient
 uv sync
 ```
 
@@ -42,10 +46,11 @@ DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/healthcare
 
 ```bash
 # Set PYTHONPATH and run
-export PYTHONPATH="../../common/src:$PYTHONPATH"
+export PYTHONPATH="../common/src:$PYTHONPATH"
 uv run uvicorn src.patient_service.main:app --reload --port 8002
 
-# Or use the run script
+# Or use the run script from package directory
+cd packages/patient
 ./run.sh
 ```
 
@@ -278,7 +283,7 @@ This service integrates with:
 
 1. **Authorization errors:** Ensure user has correct role and department
 2. **Database errors:** Check PostgreSQL connection and table creation
-3. **Import errors:** Verify PYTHONPATH includes common package
+3. **Import errors:** Verify PYTHONPATH includes `../common/src`
 4. **Token errors:** Ensure auth service is running and SECRET_KEY matches
 
 ### Debug Mode

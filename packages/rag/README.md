@@ -26,7 +26,11 @@ The RAG (Retrieval-Augmented Generation) Service provides intelligent document m
 ### Installation
 
 ```bash
-cd services/rag_service
+# From project root
+uv sync
+
+# Or from package directory
+cd packages/rag
 uv sync
 ```
 
@@ -54,11 +58,12 @@ MAX_RESULTS=5
 
 ```bash
 # Set environment variables and run
-export PYTHONPATH="../../common/src:$PYTHONPATH"
+export PYTHONPATH="../common/src:$PYTHONPATH"
 export OPENAI_API_KEY="your-openai-api-key-here"
 uv run uvicorn src.rag_service.main:app --reload --port 8003
 
-# Or use the run script
+# Or use the run script from package directory
+cd packages/rag
 ./run.sh
 ```
 
@@ -372,7 +377,7 @@ print(f'Generated {len(chunks)} chunks')
 
 1. **OpenAI API errors:** Check API key and quota limits
 2. **Vector search issues:** Ensure pgvector extension is installed
-3. **Import errors:** Verify PYTHONPATH includes common package
+3. **Import errors:** Verify PYTHONPATH includes `../common/src`
 4. **Embedding failures:** Check network connectivity and API limits
 5. **Performance issues:** Monitor database query performance
 

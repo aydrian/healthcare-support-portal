@@ -30,7 +30,7 @@ The Healthcare Support Portal is a demonstration of building secure, efficient, 
 - **🗄️ Database:** PostgreSQL with [pgvector](https://github.com/pgvector/pgvector) for vector similarity search
 - **🐍 Backend:** [FastAPI](https://fastapi.tiangolo.com) microservices with [SQLAlchemy](https://sqlalchemy.org)
 - **📦 Package Management:** [uv](https://github.com/astral-sh/uv) for fast Python package management
-- **🏗️ Architecture:** Python microservices in a monorepo
+- **🏗️ Architecture:** Python microservices in a monorepo with uv workspaces
 
 ## ✨ Features
 
@@ -62,27 +62,31 @@ The Healthcare Support Portal is a demonstration of building secure, efficient, 
 
 ```
 Healthcare Support Portal
-├── 🔐 Auth Service (Port 8001)
-│   ├── User authentication & JWT tokens
-│   ├── User management & roles
-│   └── Authorization policy enforcement
+├── 📦 packages/                  # Python workspace packages
+│   ├── 🔐 auth/ (Port 8001)
+│   │   ├── User authentication & JWT tokens
+│   │   ├── User management & roles
+│   │   └── Authorization policy enforcement
+│   │
+│   ├── 🏥 patient/ (Port 8002)
+│   │   ├── Patient CRUD operations
+│   │   ├── Doctor-patient assignments
+│   │   └── Department-based filtering
+│   │
+│   ├── 🤖 rag/ (Port 8003)
+│   │   ├── Document management & embeddings
+│   │   ├── Vector similarity search
+│   │   ├── AI-powered Q&A with context
+│   │   └── File upload & processing
+│   │
+│   └── 📚 common/
+│       ├── Shared models & database schema
+│       ├── Authentication utilities
+│       ├── Oso authorization policies
+│       └── Pydantic schemas
 │
-├── 🏥 Patient Service (Port 8002)
-│   ├── Patient CRUD operations
-│   ├── Doctor-patient assignments
-│   └── Department-based filtering
-│
-├── 🤖 RAG Service (Port 8003)
-│   ├── Document management & embeddings
-│   ├── Vector similarity search
-│   ├── AI-powered Q&A with context
-│   └── File upload & processing
-│
-├── 📦 Common Package
-│   ├── Shared models & database schema
-│   ├── Authentication utilities
-│   ├── Oso authorization policies
-│   └── Pydantic schemas
+├── 🌐 frontend/ (Port 3000)
+│   └── React Router 7 + Vite web application
 │
 └── 🗄️ PostgreSQL + pgvector
     ├── User, Patient, Document tables
@@ -94,7 +98,8 @@ Healthcare Support Portal
 
 ### Prerequisites
 
-- **Python 3.8+**
+- **Python 3.11+**
+- **Node.js 18+** (for frontend)
 - **PostgreSQL 12+** with pgvector extension
 - **Docker & Docker Compose** (for database)
 - **OpenAI API Key** (for RAG functionality)
@@ -121,7 +126,7 @@ cd healthcare-support-portal
 
 ```bash
 # Edit the RAG service .env to add your OpenAI API key
-nano services/rag_service/.env
+nano packages/rag/.env
 # Set: OPENAI_API_KEY=sk-your-actual-api-key-here
 ```
 
@@ -137,11 +142,11 @@ docker-compose up -d db
 ### 4. Install Dependencies
 
 ```bash
-# Install dependencies for all services
-cd common && uv sync && cd ..
-cd services/auth_service && uv sync && cd ../..
-cd services/patient_service && uv sync && cd ../..
-cd services/rag_service && uv sync && cd ../..
+# Install Python dependencies (all packages at once)
+uv sync
+
+# Install frontend dependencies
+cd frontend && npm install && cd ..
 ```
 
 ### 5. Start All Services
@@ -151,17 +156,19 @@ cd services/rag_service && uv sync && cd ../..
 ./run_all.sh
 
 # Or start individually:
-cd services/auth_service && ./run.sh &
-cd services/patient_service && ./run.sh &
-cd services/rag_service && ./run.sh &
+cd packages/auth && ./run.sh &
+cd packages/patient && ./run.sh &
+cd packages/rag && ./run.sh &
+cd frontend && ./run.sh &
 ```
 
 ### 6. Verify Installation
 
-Visit the API documentation:
-- **🔐 Auth Service:** http://localhost:8001/docs
-- **🏥 Patient Service:** http://localhost:8002/docs
-- **🤖 RAG Service:** http://localhost:8003/docs
+Visit the application and API documentation:
+- **🌐 Frontend Application:** http://localhost:3000
+- **🔐 Auth Service API:** http://localhost:8001/docs
+- **🏥 Patient Service API:** http://localhost:8002/docs
+- **🤖 RAG Service API:** http://localhost:8003/docs
 
 ## 🎯 Services
 
@@ -180,7 +187,7 @@ Visit the API documentation:
 - `GET /api/v1/auth/me` - Current user info
 - `GET /api/v1/users/` - List users (with authorization)
 
-[📖 Detailed Documentation](services/auth_service/README.md)
+[📖 Detailed Documentation](packages/auth/README.md)
 
 ### 🏥 Patient Service (Port 8002)
 **Purpose:** Patient record management with role-based access
@@ -197,7 +204,7 @@ Visit the API documentation:
 - `GET /api/v1/patients/{id}` - Get patient details
 - `PUT /api/v1/patients/{id}` - Update patient
 
-[📖 Detailed Documentation](services/patient_service/README.md)
+[📖 Detailed Documentation](packages/patient/README.md)
 
 ### 🤖 RAG Service (Port 8003)
 **Purpose:** AI-powered document management and intelligent assistance
@@ -214,7 +221,24 @@ Visit the API documentation:
 - `POST /api/v1/chat/ask` - AI-powered Q&A
 - `GET /api/v1/documents/` - List authorized documents
 
-[📖 Detailed Documentation](services/rag_service/README.md)
+[📖 Detailed Documentation](packages/rag/README.md)
+
+### 🌐 Frontend Application (Port 3000)
+**Purpose:** Modern web interface for healthcare professionals
+
+**Key Features:**
+- React Router 7 with Vite for fast development
+- shadcn/ui components for consistent design  
+- TailwindCSS v4 for styling
+- Real-time updates and responsive design
+- Role-based UI components
+
+**Technology Stack:**
+- React Router 7 (Framework mode)
+- Vite (Build tool)
+- TypeScript
+- TailwindCSS v4 (zero-config)
+- shadcn/ui components
 
 ## 📚 API Documentation
 
@@ -311,23 +335,29 @@ curl -X POST "http://localhost:8003/api/v1/chat/search" \
 
 ```
 healthcare-support-portal/
-├── common/                     # Shared package
-│   ├── src/common/
-│   │   ├── models.py          # SQLAlchemy models
-│   │   ├── db.py              # Database utilities
-│   │   ├── auth.py            # Authentication utilities
-│   │   ├── schemas.py         # Pydantic schemas
-│   │   └── policies/
-│   │       └── authorization.polar  # Oso policies
-│   └── pyproject.toml
-├── services/
-│   ├── auth_service/          # Authentication service
-│   ├── patient_service/       # Patient management service
-│   └── rag_service/           # RAG and AI service
-├── docker-compose.yml         # Database setup
-├── run_all.sh                 # Start all services
-├── stop_all.sh                # Stop all services
-└── setup.sh                   # Initial project setup
+├── packages/                   # Python workspace packages
+│   ├── common/                 # Shared package
+│   │   ├── src/common/
+│   │   │   ├── models.py      # SQLAlchemy models
+│   │   │   ├── db.py          # Database utilities
+│   │   │   ├── auth.py        # Authentication utilities
+│   │   │   ├── schemas.py     # Pydantic schemas
+│   │   │   └── policies/
+│   │   │       └── authorization.polar  # Oso policies
+│   │   └── pyproject.toml
+│   ├── auth/                   # Authentication service
+│   ├── patient/                # Patient management service
+│   └── rag/                    # RAG and AI service
+├── frontend/                   # React Router 7 web application
+│   ├── app/                    # Application source
+│   ├── package.json
+│   └── vite.config.ts
+├── pyproject.toml              # Workspace configuration
+├── uv.lock                     # Single lockfile for Python
+├── docker-compose.yml          # Database setup
+├── run_all.sh                  # Start all services
+├── stop_all.sh                 # Stop all services
+└── setup.sh                    # Initial project setup
 ```
 
 ### Development Workflow
@@ -347,10 +377,11 @@ pkill -f "auth_service"
 
 ### Adding New Features
 
-1. **Models:** Add to `common/src/common/models.py`
-2. **Policies:** Update `common/src/common/policies/authorization.polar`
+1. **Models:** Add to `packages/common/src/common/models.py`
+2. **Policies:** Update `packages/common/src/common/policies/authorization.polar`
 3. **APIs:** Add endpoints to appropriate service routers
-4. **Tests:** Add tests in service directories (when implemented)
+4. **Frontend:** Add React components in `frontend/app/`
+5. **Tests:** Add tests in service directories (when implemented)
 
 ### Database Migrations
 
@@ -359,8 +390,8 @@ pkill -f "auth_service"
 docker exec -it healthcare-support-portal-db-1 psql -U postgres -d healthcare
 
 # Or use alembic (if configured)
-cd common && uv run alembic revision --autogenerate -m "description"
-cd common && uv run alembic upgrade head
+cd packages/common && uv run alembic revision --autogenerate -m "description"
+cd packages/common && uv run alembic upgrade head
 ```
 
 ## 🚀 Deployment
@@ -372,9 +403,10 @@ cd common && uv run alembic upgrade head
 docker-compose up -d
 
 # Or build individual services
-docker build -t healthcare-auth services/auth_service/
-docker build -t healthcare-patient services/patient_service/
-docker build -t healthcare-rag services/rag_service/
+docker build -t healthcare-auth packages/auth/
+docker build -t healthcare-patient packages/patient/
+docker build -t healthcare-rag packages/rag/
+docker build -t healthcare-frontend frontend/
 ```
 
 ### Production Configuration
@@ -466,11 +498,11 @@ curl -H "Authorization: Bearer $OPENAI_API_KEY" \
 #### Import Errors
 ```bash
 # Verify common package installation
-cd services/auth_service
+cd packages/auth
 uv run python -c "from common.models import User; print('Success')"
 
 # Check PYTHONPATH in run scripts
-grep PYTHONPATH services/*/run.sh
+grep PYTHONPATH packages/*/run.sh
 ```
 
 ### Debug Mode

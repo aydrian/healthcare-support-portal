@@ -28,6 +28,7 @@ stop_service() {
 stop_service "auth"
 stop_service "patient"
 stop_service "rag"
+stop_service "frontend"
 
 # Also try to kill any remaining uvicorn processes for our services
 echo "🧹 Cleaning up any remaining processes..."

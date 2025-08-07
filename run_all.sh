@@ -37,24 +37,24 @@ fi
 
 # Start services in background
 echo "🔐 Starting Auth Service..."
-cd services/auth_service && ./run.sh > ../../logs/auth.log 2>&1 &
+cd packages/auth && ./run.sh > ../../logs/auth.log 2>&1 &
 AUTH_PID=$!
 cd ../..
 
 echo "🏥 Starting Patient Service..."
-cd services/patient_service && ./run.sh > ../../logs/patient.log 2>&1 &
+cd packages/patient && ./run.sh > ../../logs/patient.log 2>&1 &
 PATIENT_PID=$!
 cd ../..
 
 echo "🤖 Starting RAG Service..."
-cd services/rag_service && ./run.sh > ../../logs/rag.log 2>&1 &
+cd packages/rag && ./run.sh > ../../logs/rag.log 2>&1 &
 RAG_PID=$!
 cd ../..
 
 echo "🌐 Starting Frontend Service..."
-cd services/frontend_service && ./run.sh > ../../logs/frontend.log 2>&1 &
+cd frontend && ./run.sh > ../logs/frontend.log 2>&1 &
 FRONTEND_PID=$!
-cd ../..
+cd ..
 
 # Create logs directory if it doesn't exist
 mkdir -p logs

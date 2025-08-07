@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "auth-service"
+name = "auth"
 version = "0.1.0"
 description = "Authentication service for Healthcare Support Portal"
 readme = "README.md"
@@ -21,4 +21,4 @@ dependencies = [
 packages = ["src/auth_service"]
 
 [tool.uv.sources]
-common = { path = "../../common", editable = true }
+common = { workspace = true }

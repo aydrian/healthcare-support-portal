@@ -1,0 +1,14 @@
+[project]
+name = "healthcare-support-portal"
+version = "0.1.0"
+description = "Healthcare Support Portal - Microservices RAG Application"
+readme = "README.md"
+requires-python = ">=3.11"
+
+[tool.uv.workspace]
+members = [
+    "packages/common",
+    "packages/auth",
+    "packages/patient",
+    "packages/rag"
+]

@@ -1,5 +1,5 @@
 #!/bin/bash
-# services/rag_service/run.sh
+# packages/rag/run.sh
 
 # Load .env file if it exists
 if [ -f .env ]; then
@@ -8,7 +8,7 @@ if [ -f .env ]; then
 fi
 
 # Set PYTHONPATH to include common package
-export PYTHONPATH="../../common/src:$PYTHONPATH"
+export PYTHONPATH="../common/src:$PYTHONPATH"
 
 # Set default environment variables if not already set
 export SECRET_KEY="${SECRET_KEY:-your-secret-key-here}"

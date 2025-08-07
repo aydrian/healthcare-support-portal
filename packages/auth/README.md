@@ -22,7 +22,11 @@ The Authentication Service handles user authentication, registration, and token 
 ### Installation
 
 ```bash
-cd services/auth_service
+# From project root
+uv sync
+
+# Or from package directory
+cd packages/auth
 uv sync
 ```
 
@@ -41,10 +45,11 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 
 ```bash
 # Set PYTHONPATH and run
-export PYTHONPATH="../../common/src:$PYTHONPATH"
+export PYTHONPATH="../common/src:$PYTHONPATH"
 uv run uvicorn src.auth_service.main:app --reload --port 8001
 
-# Or use the run script
+# Or use the run script from package directory
+cd packages/auth
 ./run.sh
 ```
 
@@ -176,7 +181,7 @@ uv run python -c "from common.models import User; print('Import successful!')"
 
 ### Common Issues
 
-1. **Import errors:** Ensure PYTHONPATH includes `../../common/src`
+1. **Import errors:** Ensure PYTHONPATH includes `../common/src`
 2. **Database connection:** Verify PostgreSQL is running and DATABASE_URL is correct
 3. **JWT errors:** Check SECRET_KEY is set and consistent across services
 

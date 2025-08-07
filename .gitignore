@@ -75,7 +75,6 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
 .env.local
 .env.development.local
 .env.test.local
@@ -103,6 +102,7 @@ cython_debug/
 # PostgreSQL
 postgresql/
 pgdata/
+data/
 
 # Docker
 .dockerignore
@@ -177,11 +177,11 @@ uploads/
 media/
 static/
 
-# Service-specific ignores
-services/*/logs/
-services/*/.env
-services/*/uploads/
-services/*/temp/
+# Package-specific ignores
+packages/*/logs/
+packages/*/.env
+packages/*/uploads/
+packages/*/temp/
 
 # OpenAI cache (if any)
 .openai_cache/
@@ -234,7 +234,8 @@ core.*
 .history/
 
 # Claude Code settings
-.claude/
+.claude
+CLAUDE.md
 
 # Node.js and Frontend
 node_modules/
@@ -250,18 +251,16 @@ build/
 .react-router/
 
 # Frontend environment files
-services/frontend_service/.env
-services/frontend_service/.env.local
-services/frontend_service/.env.development.local
-services/frontend_service/.env.test.local
-services/frontend_service/.env.production.local
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
 
-# Local environment files per service
-services/auth_service/.env
-services/patient_service/.env
-services/rag_service/.env
+# Local environment files per package
+packages/auth/.env
+packages/patient/.env
+packages/rag/.env
 
 # Generated documentation
 site/
-
-CLAUDE.md
