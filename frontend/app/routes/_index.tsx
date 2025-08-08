@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatDateTime, formatDate } from '@/lib/utils';
-import { requireAuth, handleApiError } from '@/lib/utils/loader-utils';
+import { getCurrentUser, handleApiError } from '@/lib/utils/loader-utils';
 import { serverApi } from '@/lib/api.server';
 import type { User, Patient, Document } from '@/lib/types';
 import type { LoaderFunctionArgs } from 'react-router';
@@ -38,21 +38,34 @@ interface DashboardData {
 // Loader function - fetch dashboard data
 export async function loader({ request }: LoaderFunctionArgs) {
   try {
-    // Require authentication
-    const user = await requireAuth(request);
+    // Get current user - layout already ensures authentication
+    const user = await getCurrentUser(request);
+    if (!user) {
+      console.error('[Dashboard] No user found in loader - layout auth may have failed');
+      throw new Response('Authentication required', { status: 401 });
+    }
     
     // Get auth token from cookies
     const cookieHeader = request.headers.get('Cookie');
     const token = cookieHeader?.match(/authToken=([^;]+)/)?.[1];
     
     if (!token) {
+      console.error('[Dashboard] No auth token found');
       throw new Response('Authentication required', { status: 401 });
     }
     
+    console.log(`[Dashboard] Loading dashboard for ${user.username}`);
+    
     // Load data concurrently based on user role
     const [patients, documents] = await Promise.all([
-      serverApi.getPatients(token),
-      serverApi.getDocuments(token)
+      serverApi.getPatients(token).catch(error => {
+        console.error('[Dashboard] Failed to load patients:', error);
+        return [];
+      }),
+      serverApi.getDocuments(token).catch(error => {
+        console.error('[Dashboard] Failed to load documents:', error);
+        return [];
+      })
     ]);
 
     // Process data for dashboard
@@ -71,6 +84,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
       sensitiveDocuments: documents.filter(d => d.is_sensitive).length,
     };
 
+    console.log(`[Dashboard] Loaded ${patients.length} patients, ${documents.length} documents`);
+
     return {
       user,
       patients,
@@ -80,6 +95,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       departmentStats
     };
   } catch (error) {
+    console.error('[Dashboard] Loader error:', error);
     throw handleApiError(error);
   }
 }

@@ -20,22 +20,29 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const pathname = url.pathname;
   
+  console.log(`[Layout] Loading ${pathname}`);
+  
   // Define public routes that don't require authentication
   const publicRoutes = ['/login', '/signup'];
   const isPublicRoute = publicRoutes.includes(pathname);
   
   const user = await getCurrentUser(request);
   
+  console.log(`[Layout] User: ${user ? `${user.username} (${user.role})` : 'none'}, Public route: ${isPublicRoute}`);
+  
   // If not authenticated and trying to access protected route, redirect to login
   if (!user && !isPublicRoute) {
+    console.log(`[Layout] Redirecting to login: no user for protected route ${pathname}`);
     throw redirect('/login');
   }
   
   // If authenticated and trying to access auth pages, redirect to dashboard
   if (user && isPublicRoute) {
+    console.log(`[Layout] Redirecting to dashboard: authenticated user accessing ${pathname}`);
     throw redirect('/');
   }
   
+  console.log(`[Layout] Allowing access to ${pathname}`);
   return { user, isPublicRoute };
 }
 
