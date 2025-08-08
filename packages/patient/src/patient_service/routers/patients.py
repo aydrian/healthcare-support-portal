@@ -95,10 +95,23 @@ async def create_patient(
         )
 
     # Create new patient
+    # Parse date_of_birth if provided
+    date_of_birth = None
+    if patient_data.date_of_birth:
+        try:
+            from datetime import datetime
+            date_of_birth = datetime.fromisoformat(patient_data.date_of_birth)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid date_of_birth format. Use YYYY-MM-DD"
+            )
+    
     db_patient = Patient(
         name=patient_data.name,
         medical_record_number=patient_data.medical_record_number,
         department=patient_data.department,
+        date_of_birth=date_of_birth,
         assigned_doctor_id=patient_data.assigned_doctor_id,
         is_active=True
     )
@@ -176,6 +189,18 @@ async def update_patient(
                 detail="Patient with this medical record number already exists"
             )
 
+    # Parse date_of_birth if provided
+    date_of_birth = None
+    if patient_update.date_of_birth:
+        try:
+            from datetime import datetime
+            date_of_birth = datetime.fromisoformat(patient_update.date_of_birth)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid date_of_birth format. Use YYYY-MM-DD"
+            )
+
     # Track changes for OSO sync
     old_assigned_doctor_id = patient.assigned_doctor_id
     old_department = patient.department
@@ -184,6 +209,7 @@ async def update_patient(
     patient.name = patient_update.name
     patient.medical_record_number = patient_update.medical_record_number
     patient.department = patient_update.department
+    patient.date_of_birth = date_of_birth
     patient.assigned_doctor_id = patient_update.assigned_doctor_id
 
     db.commit()

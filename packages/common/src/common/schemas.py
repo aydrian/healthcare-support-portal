@@ -26,12 +26,14 @@ class PatientBase(BaseModel):
     department: Optional[str] = None
 
 class PatientCreate(PatientBase):
+    date_of_birth: Optional[str] = None  # ISO date string format YYYY-MM-DD
     assigned_doctor_id: Optional[int] = None
 
 class PatientResponse(PatientBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    date_of_birth: Optional[datetime] = None
     assigned_doctor_id: Optional[int]
     is_active: bool
     created_at: datetime

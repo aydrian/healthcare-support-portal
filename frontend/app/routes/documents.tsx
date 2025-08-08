@@ -12,7 +12,7 @@ import {
   User as UserIcon,
   RefreshCw
 } from 'lucide-react';
-import { useLoaderData, Form, useFetcher } from 'react-router';
+import { useLoaderData, Form, useFetcher, Link } from 'react-router';
 import { useForm, getFormProps, getInputProps, getSelectProps } from '@conform-to/react';
 import { parseWithZod } from '@conform-to/zod';
 import { Button } from '@/components/ui/button';
@@ -208,13 +208,21 @@ export default function Documents() {
           </p>
         </div>
         <div className="mt-4 flex space-x-2 md:ml-4 md:mt-0">
-          <Button variant="outline">
+          <Button 
+            variant="outline"
+            onClick={() => {
+              const uploadSection = document.querySelector('[data-upload-section]');
+              uploadSection?.scrollIntoView({ behavior: 'smooth' });
+            }}
+          >
             <Upload className="mr-2 h-4 w-4" />
             Upload
           </Button>
-          <Button variant="healthcare">
-            <Plus className="mr-2 h-4 w-4" />
-            New Document
+          <Button variant="healthcare" asChild>
+            <Link to="/documents/new">
+              <Plus className="mr-2 h-4 w-4" />
+              New Document
+            </Link>
           </Button>
         </div>
       </div>
@@ -351,9 +359,11 @@ export default function Documents() {
                   </div>
 
                   <div className="flex space-x-2 pt-2">
-                    <Button variant="outline" size="sm" className="flex-1">
-                      <Eye className="mr-1 h-3 w-3" />
-                      View
+                    <Button variant="outline" size="sm" className="flex-1" asChild>
+                      <Link to={`/documents/${document.id}`}>
+                        <Eye className="mr-1 h-3 w-3" />
+                        View
+                      </Link>
                     </Button>
                     <Button variant="ghost" size="sm">
                       <Download className="h-3 w-3" />
@@ -414,7 +424,9 @@ export default function Documents() {
       </div>
 
       {/* Document Upload */}
-      <DocumentUpload patients={patients} user={user} />
+      <div data-upload-section>
+        <DocumentUpload patients={patients} user={user} />
+      </div>
     </div>
   );
 }

@@ -157,8 +157,8 @@ def seed_users(db: Session, admin_token: str) -> Dict[str, User]:
     return created_users
 
 
-def seed_patients(db: Session, users: Dict[str, User]) -> List[Patient]:
-    """Create demo patients if they don't exist."""
+def seed_patients(db: Session, users: Dict[str, User], admin_token: str) -> List[Patient]:
+    """Create demo patients via API if they don't exist."""
     created_patients = []
     
     # Get the doctor user
@@ -172,21 +172,26 @@ def seed_patients(db: Session, users: Dict[str, User]) -> List[Patient]:
             "name": "John Anderson",
             "medical_record_number": "MRN-2024-001",
             "department": "cardiology",
-            "date_of_birth": datetime(1965, 3, 15)
+            "date_of_birth": "1965-03-15",
+            "assigned_doctor_id": doctor.id
         },
         {
             "name": "Maria Rodriguez",
             "medical_record_number": "MRN-2024-002", 
             "department": "cardiology",
-            "date_of_birth": datetime(1978, 8, 22)
+            "date_of_birth": "1978-08-22",
+            "assigned_doctor_id": doctor.id
         },
         {
             "name": "Robert Chen",
             "medical_record_number": "MRN-2024-003",
             "department": "cardiology", 
-            "date_of_birth": datetime(1952, 11, 8)
+            "date_of_birth": "1952-11-08",
+            "assigned_doctor_id": doctor.id
         }
     ]
+    
+    headers = {"Authorization": f"Bearer {admin_token}"}
     
     for patient_data in demo_patients:
         # Check if patient already exists
@@ -205,29 +210,31 @@ def seed_patients(db: Session, users: Dict[str, User]) -> List[Patient]:
                 print(f"⚠️  Failed to sync OSO facts for existing patient {patient_data['name']}: {e}")
             continue
         
-        # Create new patient
-        new_patient = Patient(
-            name=patient_data["name"],
-            medical_record_number=patient_data["medical_record_number"],
-            department=patient_data["department"],
-            date_of_birth=patient_data["date_of_birth"],
-            assigned_doctor_id=doctor.id,
-            is_active=True
-        )
-        
-        db.add(new_patient)
-        db.commit()
-        db.refresh(new_patient)
-        
-        created_patients.append(new_patient)
-        print(f"✅ Created patient: {patient_data['name']} (MRN: {patient_data['medical_record_number']})")
-        
-        # Sync OSO facts for patient access
+        # Create patient via Patient Service API
         try:
-            sync_patient_access(new_patient)
-            print(f"🔐 Synced access facts for patient {patient_data['name']}")
+            response = requests.post(
+                f"{PATIENT_SERVICE_URL}/api/v1/patients/",
+                json={
+                    "name": patient_data["name"],
+                    "medical_record_number": patient_data["medical_record_number"],
+                    "department": patient_data["department"],
+                    "date_of_birth": patient_data["date_of_birth"],
+                    "assigned_doctor_id": patient_data["assigned_doctor_id"]
+                },
+                headers=headers
+            )
+            
+            if response.status_code == 200:
+                patient_response = response.json()
+                # Get patient from database
+                new_patient = db.query(Patient).filter(Patient.id == patient_response["id"]).first()
+                created_patients.append(new_patient)
+                print(f"✅ Created patient via API (with OSO facts): {patient_data['name']} (MRN: {patient_data['medical_record_number']})")
+            else:
+                print(f"⚠️  Failed to create patient {patient_data['name']}: {response.text}")
+                
         except Exception as e:
-            print(f"⚠️  Failed to sync OSO facts for patient {patient_data['name']}: {e}")
+            print(f"⚠️  Error creating patient {patient_data['name']}: {e}")
     
     return created_patients
 
@@ -520,9 +527,9 @@ def main() -> None:
             print("\n👥 Seeding demo users via API...")
             users = seed_users(db, admin_token)
             
-            # Seed patients (still direct DB for now - could be API later)
-            print("\n🏥 Seeding demo patients...")
-            patients = seed_patients(db, users)
+            # Seed patients via Patient API
+            print("\n🏥 Seeding demo patients via API...")
+            patients = seed_patients(db, users, admin_token)
             
             # Seed documents via RAG API (this will generate embeddings!)
             print("\n📄 Seeding demo documents via RAG API...")
