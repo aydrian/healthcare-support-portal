@@ -17,8 +17,9 @@ class Settings(BaseSettings):
     secret_key: str = os.getenv("SECRET_KEY", "your-secret-key-here")
     access_token_expire_minutes: int = 30
 
-    # Oso Dev Server
-    oso_server_url: str = os.getenv("OSO_SERVER_URL", "http://oso:8080")
+    # Oso Configuration
+    oso_url: str = os.getenv("OSO_URL", "http://localhost:8080")
+    oso_auth: str = os.getenv("OSO_AUTH", "e_0123456789_12345_osotesttoken01xiIn")
 
     class Config:
         env_file = ".env"

@@ -89,7 +89,13 @@ Healthcare Support Portal
 │
 ├── 🗄️ PostgreSQL + pgvector (Port 5432)
 │   ├── User, Patient, Document tables
-│   └── Vector embeddings storage
+│   ├── Vector embeddings storage
+│   └── Alembic migration tracking
+│
+├── 🔄 Migration Service (Docker)
+│   ├── Alembic-based schema migrations
+│   ├── Database health checks & retry logic
+│   └── Automatic pgvector extension setup
 │
 ├── ⚖️ Oso Dev Server (Port 8080)
 │   ├── Centralized policy management
@@ -144,20 +150,22 @@ docker-compose up -d
 # This starts:
 # - PostgreSQL database with pgvector (port 5432)
 # - Oso Dev Server with policy hot-reloading (port 8080)
+# - Migration service (runs automatically with ./run_all.sh)
 
 # Wait for services to be ready (about 15 seconds)
 ```
 
-### 4. Initialize Database Schema
+### 4. Run Database Migrations
 
 ```bash
-# Create database tables and enable extensions
-uv run python init_database.py
+# Run database migrations to create schema
+docker-compose run migrate
 
 # This will:
 # - Enable the pgvector extension in PostgreSQL  
-# - Create all required database tables
-# - Prevent table creation conflicts during service startup
+# - Create all required database tables using Alembic
+# - Apply any pending schema migrations
+# - Ensure database is up to date before services start
 ```
 
 ### 5. Install Dependencies
@@ -372,14 +380,21 @@ healthcare-support-portal/
 ├── packages/                   # Python workspace packages
 │   ├── common/                 # Shared package
 │   │   ├── src/common/
-│   │   │   ├── models.py      # SQLAlchemy models
-│   │   │   ├── db.py          # Database utilities
-│   │   │   ├── auth.py        # Authentication utilities
-│   │   │   └── schemas.py     # Pydantic schemas
+│   │   │   ├── models.py              # SQLAlchemy models
+│   │   │   ├── db.py                  # Database utilities
+│   │   │   ├── auth.py                # Authentication utilities
+│   │   │   ├── migration_check.py     # Migration verification utilities
+│   │   │   └── schemas.py             # Pydantic schemas
+│   │   ├── alembic/                   # Database migration files
+│   │   │   ├── versions/              # Migration versions
+│   │   │   └── env.py                 # Alembic environment config
+│   │   ├── alembic.ini                # Alembic configuration
 │   │   └── pyproject.toml
 │   ├── auth/                   # Authentication service
 │   ├── patient/                # Patient management service
 │   └── rag/                    # RAG and AI service
+├── scripts/                    # Utility scripts
+│   └── migrate.sh              # Database migration script
 ├── frontend/                   # React Router 7 web application
 │   ├── app/                    # Application source
 │   ├── package.json
@@ -387,8 +402,8 @@ healthcare-support-portal/
 ├── authorization.polar         # Oso authorization policies
 ├── pyproject.toml              # Workspace configuration
 ├── uv.lock                     # Single lockfile for Python
-├── docker-compose.yml          # Infrastructure services setup
-├── init_database.py            # Database schema initialization
+├── docker-compose.yml          # Infrastructure + migration services
+├── Dockerfile.migrate          # Docker image for migrations
 ├── run_all.sh                  # Start all services
 ├── stop_all.sh                 # Stop all services
 └── setup.sh                    # Initial project setup
@@ -398,14 +413,19 @@ healthcare-support-portal/
 
 ```bash
 # Start development environment (first time setup)
-docker-compose up -d                    # Start infrastructure
-uv run python init_database.py          # Initialize database schema
+docker-compose up -d                    # Start infrastructure (db + oso)
+docker-compose run migrate               # Run database migrations
 ./run_all.sh                           # Start all services
 
 # Daily development
-./run_all.sh                           # Start services (database already initialized)
+./run_all.sh                           # Start services (includes migration check)
 
 # Make changes to code (auto-reload enabled)
+# Services will verify migrations are current on startup
+
+# Create new database migration (when models change)
+cd packages/common && uv run alembic revision --autogenerate -m "description"
+docker-compose run migrate               # Apply new migration
 
 # Stop all services
 ./stop_all.sh
@@ -424,56 +444,98 @@ pkill -f "auth_service"
 
 ### Database Migrations
 
-```bash
-# Connect to database
-docker exec -it healthcare-support-portal-db-1 psql -U postgres -d healthcare
+The project uses **Alembic** for database schema management with production-grade migration workflows:
 
-# Or use alembic (if configured)
-cd packages/common && uv run alembic revision --autogenerate -m "description"
+```bash
+# Run migrations (recommended - uses Docker)
+docker-compose run migrate
+
+# Create new migration (when you change models)
+cd packages/common && uv run alembic revision --autogenerate -m "Add new feature"
+
+# Apply migrations manually (alternative to Docker)
 cd packages/common && uv run alembic upgrade head
+
+# Check current migration status
+cd packages/common && uv run alembic current
+
+# View migration history
+cd packages/common && uv run alembic history
+
+# Rollback last migration (use with caution)
+cd packages/common && uv run alembic downgrade -1
+
+# Connect to database for manual inspection
+docker exec -it healthcare-support-portal-db-1 psql -U postgres -d healthcare
 ```
+
+**Migration Verification:**
+- All services automatically verify migrations are current on startup
+- Services will exit if migrations are outdated (prevents race conditions)
+- Use `./run_all.sh` for automated migration checking
 
 ## 🚀 Deployment
 
 ### Docker Deployment
 
-```bash
-# Build and deploy with Docker Compose
-docker-compose up -d
+The project uses Docker Compose for **infrastructure services only**. Application services run via Python scripts.
 
-# Or build individual services
-docker build -t healthcare-auth packages/auth/
-docker build -t healthcare-patient packages/patient/
-docker build -t healthcare-rag packages/rag/
-docker build -t healthcare-frontend frontend/
+```bash
+# Start infrastructure services (PostgreSQL + Migration)
+docker-compose up -d db
+docker-compose run --rm migrate  # Run database migrations
+
+# Start application services (separate terminal)
+./run_all.sh  # Starts all Python services + frontend
+
+# For production: Start only required infrastructure
+# (Remove 'oso' service - use Oso Cloud instead)
+docker-compose up -d db  
+docker-compose run --rm migrate
 ```
+
+**Note:** Individual services don't have Dockerfiles - they run via uv/Python directly.
 
 ### Production Configuration
 
 1. **Environment Variables:**
    ```bash
+   # Application Configuration
    export DEBUG=false
    export ENVIRONMENT=production
-   export SECRET_KEY=your-super-secure-key
+   export SECRET_KEY=your-super-secure-key-64-chars-min
    export DATABASE_URL=postgresql://user:pass@prod-db:5432/healthcare
-   export OPENAI_API_KEY=sk-your-production-key
+   export OPENAI_API_KEY=sk-your-production-openai-key
+   
+   # Oso Cloud Configuration (Production)
+   export OSO_URL=https://cloud.osohq.com
+   export OSO_AUTH=your-production-oso-cloud-api-key
+   
+   # Development uses local Oso Dev Server:
+   # export OSO_URL=http://localhost:8080  
+   # export OSO_AUTH=e_0123456789_12345_osotesttoken01xiIn
    ```
 
 2. **Database:**
-   - Use managed PostgreSQL service
-   - Enable pgvector extension
-   - Configure connection pooling
-   - Set up regular backups
+   - Use managed PostgreSQL service with pgvector extension
+   - Run migrations: `docker-compose run migrate` or `alembic upgrade head`
+   - Configure connection pooling and SSL
+   - Set up regular backups and point-in-time recovery
+   - Monitor migration status in production deployments
 
-3. **Security:**
+3. **Authorization (Oso Cloud):**
+   - Sign up for [Oso Cloud](https://cloud.osohq.com) production account
+   - Replace local Oso Dev Server with Oso Cloud endpoints
+   - Configure production API keys and policies
+   - Remove Oso Dev Server from production docker-compose
+
+4. **Security:**
    - Use HTTPS/TLS certificates
-   - Configure proper CORS origins
-   - Enable rate limiting
-   - Set up monitoring and logging
+   - Configure proper CORS origins  
+   - Enable rate limiting and request throttling
+   - Set up monitoring, logging, and alerting
+   - Rotate JWT secrets and API keys regularly
 
-### Kubernetes Deployment
-
-See `k8s/` directory for Kubernetes manifests (if available).
 
 ## 🔒 Security
 
@@ -522,6 +584,28 @@ docker exec -it healthcare-support-portal-db-1 psql -U postgres -d healthcare -c
 
 # Check database URL format
 # Should be: postgresql+psycopg2://user:pass@host:port/database
+
+# Verify migrations are applied
+cd packages/common && uv run alembic current
+
+# Check if tables exist
+docker exec healthcare-support-portal-db-1 psql -U postgres -d healthcare -c "\dt"
+```
+
+#### Migration Issues
+```bash
+# Service won't start due to outdated migrations
+docker-compose run migrate  # Apply missing migrations
+
+# Check migration status
+cd packages/common && uv run alembic current
+
+# View migration history
+cd packages/common && uv run alembic history
+
+# Reset migrations (DANGER: destroys data)
+cd packages/common && uv run alembic downgrade base
+docker-compose run migrate
 ```
 
 #### OpenAI API Issues
