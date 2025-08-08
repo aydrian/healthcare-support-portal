@@ -31,6 +31,7 @@ import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router';
 interface DocumentsData {
   user: User;
   documents: Document[];
+  embeddingStatuses: Record<number, any>;
 }
 
 // Loader function - fetch documents data
@@ -47,12 +48,16 @@ export async function loader({ request }: LoaderFunctionArgs) {
       throw new Response('Authentication required', { status: 401 });
     }
     
-    // Load documents
-    const documents = await serverApi.getDocuments(token);
+    // Load documents and embedding statuses
+    const [documents, embeddingStatuses] = await Promise.all([
+      serverApi.getDocuments(token),
+      serverApi.getAllEmbeddingStatuses(token)
+    ]);
 
     return {
       user,
-      documents
+      documents,
+      embeddingStatuses
     };
   } catch (error) {
     throw handleApiError(error);
@@ -105,13 +110,13 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function Documents() {
-  const { user, documents } = useLoaderData<DocumentsData>();
+  const { user, documents, embeddingStatuses: initialEmbeddingStatuses } = useLoaderData<DocumentsData>();
   const fetcher = useFetcher();
   const [filteredDocuments, setFilteredDocuments] = useState<Document[]>(documents);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
-  const [embeddingStatuses, setEmbeddingStatuses] = useState<Record<number, any>>({});
+  const [embeddingStatuses, setEmbeddingStatuses] = useState<Record<number, any>>(initialEmbeddingStatuses);
 
   useEffect(() => {
     filterDocuments();
@@ -308,7 +313,7 @@ export default function Documents() {
                       <div className="mt-2">
                         <EmbeddingStatus
                           documentId={document.id}
-                          hasEmbeddings={embeddingStatuses[document.id]?.has_embeddings ?? true}
+                          hasEmbeddings={embeddingStatuses[document.id]?.has_embeddings ?? false}
                           embeddingCount={embeddingStatuses[document.id]?.embedding_count ?? 0}
                           onRegenerate={() => handleRegenerateEmbeddings(document.id)}
                           canRegenerate={user?.role === 'admin' || user?.role === 'doctor'}

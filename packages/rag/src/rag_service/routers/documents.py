@@ -49,6 +49,25 @@ async def list_documents(
 
     return documents
 
+@router.get("/embedding-statuses")
+async def get_all_embedding_statuses(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get embedding status for all documents the user can access
+    """
+    # Use Oso Cloud to filter documents the current user can read
+    authorized_documents = db.query(Document).options(authorized(current_user, "read", Document)).all()
+    
+    statuses = {}
+    for document in authorized_documents:
+        status = await get_embedding_status(document.id, db)
+        statuses[document.id] = status
+    
+    return statuses
+
 @router.get("/{document_id}", response_model=DocumentResponse)
 async def get_document(
     document_id: int,
