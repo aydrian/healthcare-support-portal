@@ -17,7 +17,7 @@ from common.schemas import DocumentResponse, DocumentCreate
 from common.oso_sync import sync_document_access, remove_document_access
 
 from ..utils.text_processing import clean_text, chunk_text
-from ..utils.embeddings import store_document_embeddings
+from ..utils.embeddings import store_document_embeddings, regenerate_document_embeddings, get_embedding_status
 
 router = APIRouter()
 
@@ -249,3 +249,121 @@ async def delete_document(
     db.commit()
 
     return {"message": "Document deleted successfully"}
+
+@router.post("/{document_id}/regenerate-embeddings")
+async def regenerate_embeddings(
+    document_id: int,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Regenerate embeddings for a specific document
+    """
+    oso = get_oso()
+    settings = request.app.state.settings
+    
+    # Get the document
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+    
+    # Check if current user is authorized to write this document
+    if not oso.authorize(current_user, "write", document):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to regenerate embeddings for this document"
+        )
+    
+    # Regenerate embeddings
+    result = await regenerate_document_embeddings(
+        document, db, settings.embedding_model
+    )
+    
+    if not result["success"]:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=result["message"]
+        )
+    
+    return result
+
+@router.get("/{document_id}/embedding-status")
+async def get_document_embedding_status(
+    document_id: int,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get embedding status for a specific document
+    """
+    oso = get_oso()
+    
+    # Get the document
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+    
+    # Check if current user is authorized to read this document
+    if not oso.authorize(current_user, "read", document):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this document"
+        )
+    
+    # Get embedding status
+    status = await get_embedding_status(document_id, db)
+    return status
+
+@router.post("/regenerate-all-embeddings")
+async def regenerate_all_embeddings(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Regenerate embeddings for all documents (admin only)
+    """
+    settings = request.app.state.settings
+    
+    # Check if current user is admin
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can regenerate all embeddings"
+        )
+    
+    # Get all documents
+    documents = db.query(Document).all()
+    
+    results = {
+        "total_documents": len(documents),
+        "successful": 0,
+        "failed": 0,
+        "details": []
+    }
+    
+    for document in documents:
+        result = await regenerate_document_embeddings(
+            document, db, settings.embedding_model
+        )
+        
+        if result["success"]:
+            results["successful"] += 1
+        else:
+            results["failed"] += 1
+        
+        results["details"].append({
+            "document_id": document.id,
+            "title": document.title,
+            **result
+        })
+    
+    return results

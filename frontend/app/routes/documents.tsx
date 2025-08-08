@@ -9,15 +9,17 @@ import {
   Download,
   AlertCircle,
   Calendar,
-  User as UserIcon
+  User as UserIcon,
+  RefreshCw
 } from 'lucide-react';
-import { useLoaderData, Form } from 'react-router';
+import { useLoaderData, Form, useFetcher } from 'react-router';
 import { useForm, getFormProps, getInputProps, getSelectProps } from '@conform-to/react';
 import { parseWithZod } from '@conform-to/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { EmbeddingStatus } from '@/components/embeddings/EmbeddingStatus';
 import { formatDateTime, truncateText } from '@/lib/utils';
 import { requireAuth, handleApiError } from '@/lib/utils/loader-utils';
 import { handleFormSubmission } from '@/lib/utils/action-utils';
@@ -57,7 +59,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 }
 
-// Action function - handle document creation
+// Action function - handle document creation and embedding regeneration
 export async function action({ request }: ActionFunctionArgs) {
   const user = await requireAuth(request);
   const cookieHeader = request.headers.get('Cookie');
@@ -67,6 +69,29 @@ export async function action({ request }: ActionFunctionArgs) {
     throw new Response('Authentication required', { status: 401 });
   }
 
+  const formData = await request.formData();
+  const action = formData.get('action');
+  
+  // Handle embedding regeneration
+  if (action === 'regenerate') {
+    const documentId = parseInt(formData.get('documentId') as string);
+    
+    try {
+      const result = await serverApi.regenerateEmbeddings(documentId, token);
+      return Response.json({ 
+        success: true, 
+        documentId, 
+        ...result 
+      });
+    } catch (error) {
+      return Response.json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to regenerate embeddings' 
+      }, { status: 500 });
+    }
+  }
+
+  // Handle document creation
   return handleFormSubmission(request, documentCreateSchema, async (data) => {
     // Add user context to document data
     const documentData = {
@@ -81,14 +106,29 @@ export async function action({ request }: ActionFunctionArgs) {
 
 export default function Documents() {
   const { user, documents } = useLoaderData<DocumentsData>();
+  const fetcher = useFetcher();
   const [filteredDocuments, setFilteredDocuments] = useState<Document[]>(documents);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [embeddingStatuses, setEmbeddingStatuses] = useState<Record<number, any>>({});
 
   useEffect(() => {
     filterDocuments();
   }, [documents, searchTerm, typeFilter, departmentFilter]);
+
+  // Handle fetcher response for embedding regeneration
+  useEffect(() => {
+    if (fetcher.data && fetcher.state === 'idle' && fetcher.data.success && fetcher.data.documentId) {
+      setEmbeddingStatuses(prev => ({
+        ...prev,
+        [fetcher.data.documentId]: {
+          has_embeddings: true,
+          embedding_count: fetcher.data.chunks_created || 0
+        }
+      }));
+    }
+  }, [fetcher.data, fetcher.state]);
 
   const filterDocuments = () => {
     let filtered = documents;
@@ -134,6 +174,15 @@ export default function Documents() {
       default:
         return '📄';
     }
+  };
+
+  const handleRegenerateEmbeddings = async (documentId: number) => {
+    // Use fetcher to handle the regeneration
+    const formData = new FormData();
+    formData.append('action', 'regenerate');
+    formData.append('documentId', documentId.toString());
+    
+    fetcher.submit(formData, { method: 'post' });
   };
 
 
@@ -255,6 +304,15 @@ export default function Documents() {
                             Sensitive
                           </Badge>
                         )}
+                      </div>
+                      <div className="mt-2">
+                        <EmbeddingStatus
+                          documentId={document.id}
+                          hasEmbeddings={embeddingStatuses[document.id]?.has_embeddings ?? true}
+                          embeddingCount={embeddingStatuses[document.id]?.embedding_count ?? 0}
+                          onRegenerate={() => handleRegenerateEmbeddings(document.id)}
+                          canRegenerate={user?.role === 'admin' || user?.role === 'doctor'}
+                        />
                       </div>
                     </div>
                   </div>

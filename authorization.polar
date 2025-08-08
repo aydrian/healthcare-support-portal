@@ -15,10 +15,13 @@ resource User {
     permissions = ["read", "write", "delete"];
     roles = ["admin"];
     
-    # Admins can do everything with users
+    # Admins can do everything with users - no individual facts needed
     "read" if "admin";
     "write" if "admin"; 
     "delete" if "admin";
+    
+    # Users can read their own information
+    "read" if resource == actor;
 }
 
 resource Patient {
@@ -88,6 +91,13 @@ declare has_role(User, String, Embedding);
 
 allow(actor, action, resource) if 
     has_permission(actor, action, resource);
+
+# Global admin permissions - admins can access all users
+# This works by checking role directly without requiring OSO facts
+allow(actor, action, resource) if
+    actor.role = "admin" and
+    resource matches User and
+    action in ["read", "write", "delete"];
 
 # ============================================================================
 # TESTS

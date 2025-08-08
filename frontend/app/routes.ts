@@ -9,6 +9,9 @@ export default [
     route("patients/:id", "routes/patients/patient.tsx"),
     route("chat", "routes/chat.tsx"),
     route("documents", "routes/documents.tsx"),
+    route("users", "routes/users/index.tsx"),
+    route("users/new", "routes/users/new.tsx"),
+    route("users/:id/edit", "routes/users/$id.edit.tsx"),
     route("settings", "routes/settings.tsx"),
   ]),
 ] satisfies RouteConfig;

@@ -148,6 +148,79 @@ async def similarity_search(
         print(f"Error in similarity search: {e}")
         return []
 
+async def regenerate_document_embeddings(
+    document: Document,
+    db: Session,
+    model: str = "text-embedding-3-small"
+) -> dict:
+    """
+    Regenerate embeddings for an existing document.
+    Returns status dict with success and message.
+    """
+    try:
+        from ..utils.text_processing import chunk_text
+        
+        # Delete existing embeddings for this document
+        db.query(Embedding).filter(Embedding.document_id == document.id).delete()
+        db.commit()
+        
+        # Create new chunks from document content
+        chunks = chunk_text(
+            document.content,
+            chunk_size=500,  # Default chunk size
+            chunk_overlap=50  # Default overlap
+        )
+        
+        # Generate and store new embeddings
+        success = await store_document_embeddings(
+            document, chunks, db, model
+        )
+        
+        if success:
+            return {
+                "success": True,
+                "message": f"Successfully regenerated {len(chunks)} embeddings for document {document.id}",
+                "chunks_created": len(chunks)
+            }
+        else:
+            return {
+                "success": False,
+                "message": f"Failed to regenerate embeddings for document {document.id}",
+                "chunks_created": 0
+            }
+            
+    except Exception as e:
+        print(f"Error regenerating embeddings for document {document.id}: {e}")
+        db.rollback()
+        return {
+            "success": False,
+            "message": f"Error: {str(e)}",
+            "chunks_created": 0
+        }
+
+async def get_embedding_status(document_id: int, db: Session) -> dict:
+    """
+    Get embedding status for a document.
+    """
+    try:
+        embedding_count = db.query(Embedding).filter(
+            Embedding.document_id == document_id
+        ).count()
+        
+        return {
+            "document_id": document_id,
+            "has_embeddings": embedding_count > 0,
+            "embedding_count": embedding_count
+        }
+    except Exception as e:
+        print(f"Error getting embedding status for document {document_id}: {e}")
+        return {
+            "document_id": document_id,
+            "has_embeddings": False,
+            "embedding_count": 0,
+            "error": str(e)
+        }
+
 def combine_chunks_for_context(search_results: List[dict], max_tokens: int = 6000) -> str:
     """
     Combine relevant chunks into context for RAG, respecting token limits.

@@ -21,10 +21,17 @@ async def list_users(
     limit: int = 100
 ):
     """
-    List users (with Oso authorization)
+    List users (admin only - bypassing OSO for user management)
     """
-    # Use Oso Cloud to filter users the current user can read
-    users = db.query(User).options(authorized(current_user, "read", User)).offset(skip).limit(limit).all()
+    # Check if current user is admin - manual check instead of OSO
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can list users"
+        )
+    
+    # Get all users without OSO filtering since we already validated admin role
+    users = db.query(User).offset(skip).limit(limit).all()
 
     return users
 
@@ -36,10 +43,8 @@ async def get_user(
     db: Session = Depends(get_db)
 ):
     """
-    Get specific user (with Oso authorization)
+    Get specific user (admin only or self)
     """
-    oso = get_oso()
-
     # Get the user
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -48,8 +53,8 @@ async def get_user(
             detail="User not found"
         )
 
-    # Check if current user is authorized to read this user
-    if not oso.authorize(current_user, "read", user):
+    # Check authorization - admin can read any user, users can read themselves
+    if current_user.role != "admin" and current_user.id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to access this user"
@@ -66,10 +71,8 @@ async def update_user(
     db: Session = Depends(get_db)
 ):
     """
-    Update user (with Oso authorization)
+    Update user (admin only)
     """
-    oso = get_oso()
-
     # Get the user
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -78,11 +81,11 @@ async def update_user(
             detail="User not found"
         )
 
-    # Check if current user is authorized to write this user
-    if not oso.authorize(current_user, "write", user):
+    # Check authorization - only admin can update users
+    if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to update this user"
+            detail="Only administrators can update users"
         )
 
     # Track changes for OSO sync

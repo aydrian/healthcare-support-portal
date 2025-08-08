@@ -31,6 +31,7 @@ const navigation: NavItem[] = [
   { name: 'Patients', href: '/patients', icon: Users, roles: ['doctor', 'nurse', 'admin'] },
   { name: 'Chat Assistant', href: '/chat', icon: MessageSquare },
   { name: 'Documents', href: '/documents', icon: FileText },
+  { name: 'User Management', href: '/users', icon: Users, roles: ['admin'] },
   { name: 'Settings', href: '/settings', icon: Settings, roles: ['admin'] },
 ];
 
