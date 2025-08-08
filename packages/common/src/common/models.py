@@ -1,14 +1,15 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Boolean
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.sql import func
-from pgvector.sqlalchemy import Vector
 from sqlalchemy_oso_cloud.oso import Resource
 
 Base = declarative_base()
 
+
 class User(Base, Resource):
     __tablename__ = "users"
-    
+
     # OSO Cloud type identifier
     type = "User"
 
@@ -24,9 +25,10 @@ class User(Base, Resource):
     # Relationships
     assigned_patients = relationship("Patient", back_populates="assigned_doctor")
 
+
 class Patient(Base, Resource):
     __tablename__ = "patients"
-    
+
     # OSO Cloud type identifier
     type = "Patient"
 
@@ -43,9 +45,10 @@ class Patient(Base, Resource):
     assigned_doctor = relationship("User", back_populates="assigned_patients")
     documents = relationship("Document", back_populates="patient")
 
+
 class Document(Base, Resource):
     __tablename__ = "documents"
-    
+
     # OSO Cloud type identifier
     type = "Document"
 
@@ -64,9 +67,10 @@ class Document(Base, Resource):
     created_by = relationship("User")
     embeddings = relationship("Embedding", back_populates="document")
 
+
 class Embedding(Base, Resource):
     __tablename__ = "embeddings"
-    
+
     # OSO Cloud type identifier
     type = "Embedding"
 

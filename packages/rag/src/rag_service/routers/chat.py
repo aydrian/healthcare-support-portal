@@ -5,51 +5,55 @@ from pathlib import Path
 common_path = Path(__file__).parent.parent.parent.parent.parent / "common" / "src"
 sys.path.insert(0, str(common_path))
 
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from sqlalchemy_oso_cloud import authorized, get_oso
+
 import openai
-
-from common.db import get_db
-from common.models import User, Document
 from common.auth import get_current_user
+from common.db import get_db
+from common.models import Document, User
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from sqlalchemy_oso_cloud import authorized
 
-from ..utils.embeddings import similarity_search, combine_chunks_for_context
+from ..utils.embeddings import combine_chunks_for_context, similarity_search
 from ..utils.text_processing import calculate_token_count
 
 router = APIRouter()
 
+
 # Request/Response Models
 class ChatRequest(BaseModel):
     message: str
-    context_patient_id: Optional[int] = None
-    context_department: Optional[str] = None
-    max_results: Optional[int] = 5
+    context_patient_id: int | None = None
+    context_department: str | None = None
+    max_results: int | None = 5
+
 
 class ChatResponse(BaseModel):
     response: str
-    sources: List[dict]
+    sources: list[dict]
     token_count: int
     context_used: bool
 
+
 class SearchRequest(BaseModel):
     query: str
-    document_types: Optional[List[str]] = None
-    department: Optional[str] = None
-    limit: Optional[int] = 10
+    document_types: list[str] | None = None
+    department: str | None = None
+    limit: int | None = 10
+
 
 class SearchResponse(BaseModel):
-    results: List[dict]
+    results: list[dict]
     total_results: int
+
 
 @router.post("/search", response_model=SearchResponse)
 async def search_documents(
     search_request: SearchRequest,
     request: Request,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Search documents using vector similarity
@@ -57,7 +61,9 @@ async def search_documents(
     settings = request.app.state.settings
 
     # Get authorized documents query
-    authorized_query = db.query(Document).options(authorized(current_user, "read", Document))
+    authorized_query = db.query(Document).options(
+        authorized(current_user, "read", Document)
+    )
 
     # Apply filters
     if search_request.document_types:
@@ -83,20 +89,18 @@ async def search_documents(
         db=db,
         limit=search_request.limit or settings.max_results,
         similarity_threshold=settings.similarity_threshold,
-        document_ids=authorized_doc_ids
+        document_ids=authorized_doc_ids,
     )
 
-    return SearchResponse(
-        results=results,
-        total_results=len(results)
-    )
+    return SearchResponse(results=results, total_results=len(results))
+
 
 @router.post("/ask", response_model=ChatResponse)
 async def ask_question(
     chat_request: ChatRequest,
     request: Request,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Ask a question and get an AI-powered response with RAG
@@ -104,7 +108,9 @@ async def ask_question(
     settings = request.app.state.settings
 
     # Get authorized documents for context
-    authorized_query = db.query(Document).options(authorized(current_user, "read", Document))
+    authorized_query = db.query(Document).options(
+        authorized(current_user, "read", Document)
+    )
 
     # Apply context filters if provided
     if chat_request.context_patient_id:
@@ -131,7 +137,7 @@ async def ask_question(
             db=db,
             limit=chat_request.max_results or settings.max_results,
             similarity_threshold=settings.similarity_threshold,
-            document_ids=authorized_doc_ids
+            document_ids=authorized_doc_ids,
         )
 
         sources = search_results
@@ -143,7 +149,7 @@ async def ask_question(
             question=chat_request.message,
             context_results=sources,
             user_role=current_user.role,
-            settings=settings
+            settings=settings,
         )
 
         token_count = calculate_token_count(ai_response)
@@ -152,20 +158,18 @@ async def ask_question(
             response=ai_response,
             sources=sources,
             token_count=token_count,
-            context_used=context_used
+            context_used=context_used,
         )
 
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error generating response: {str(e)}"
+            detail=f"Error generating response: {str(e)}",
         )
 
+
 async def generate_ai_response(
-    question: str,
-    context_results: List[dict],
-    user_role: str,
-    settings
+    question: str, context_results: list[dict], user_role: str, settings
 ) -> str:
     """
     Generate AI response using OpenAI with RAG context
@@ -174,8 +178,7 @@ async def generate_ai_response(
     context = ""
     if context_results:
         context = combine_chunks_for_context(
-            context_results, 
-            max_tokens=settings.max_context_length
+            context_results, max_tokens=settings.max_context_length
         )
 
     # Create system prompt based on user role
@@ -183,13 +186,11 @@ async def generate_ai_response(
         "doctor": """You are an AI assistant helping a doctor in a healthcare setting. 
         Provide accurate, professional medical information based on the provided context. 
         Always remind users to verify information and consult current medical guidelines.""",
-
         "nurse": """You are an AI assistant helping a nurse in a healthcare setting. 
         Provide practical, relevant information for nursing care based on the provided context. 
         Focus on procedures, patient care, and safety protocols.""",
-
         "admin": """You are an AI assistant helping a healthcare administrator. 
-        Provide information about policies, procedures, and administrative matters based on the provided context."""
+        Provide information about policies, procedures, and administrative matters based on the provided context.""",
     }
 
     system_prompt = system_prompts.get(user_role, system_prompts["admin"])
@@ -200,10 +201,12 @@ async def generate_ai_response(
     ]
 
     if context:
-        messages.append({
-            "role": "system", 
-            "content": f"Use the following context to answer the user's question:\n\n{context}"
-        })
+        messages.append(
+            {
+                "role": "system",
+                "content": f"Use the following context to answer the user's question:\n\n{context}",
+            }
+        )
 
     messages.append({"role": "user", "content": question})
 
@@ -214,7 +217,7 @@ async def generate_ai_response(
             model=settings.chat_model,
             messages=messages,
             max_tokens=1000,
-            temperature=0.7
+            temperature=0.7,
         )
 
         ai_response = response.choices[0].message.content
@@ -228,10 +231,10 @@ async def generate_ai_response(
     except Exception as e:
         return f"I apologize, but I'm unable to generate a response at this time. Error: {str(e)}"
 
+
 @router.get("/conversation-history")
 async def get_conversation_history(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     Get conversation history for the current user
@@ -240,16 +243,17 @@ async def get_conversation_history(
     # Placeholder - would implement conversation storage
     return {
         "message": "Conversation history feature not yet implemented",
-        "user_id": current_user.id
+        "user_id": current_user.id,
     }
+
 
 @router.post("/feedback")
 async def submit_feedback(
     response_id: str,
     rating: int,
-    feedback: Optional[str] = None,
+    feedback: str | None = None,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Submit feedback on AI responses
@@ -259,6 +263,5 @@ async def submit_feedback(
     return {
         "message": "Thank you for your feedback",
         "response_id": response_id,
-        "rating": rating
+        "rating": rating,
     }
-

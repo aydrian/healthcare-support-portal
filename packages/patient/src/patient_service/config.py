@@ -1,5 +1,7 @@
 import os
+
 from pydantic_settings import BaseSettings
+
 
 class Settings(BaseSettings):
     app_name: str = "Healthcare Support Portal - Patient Service"
@@ -9,8 +11,8 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = os.getenv(
-        "DATABASE_URL", 
-        "postgresql+psycopg2://postgres:postgres@localhost:5432/healthcare"
+        "DATABASE_URL",
+        "postgresql+psycopg2://postgres:postgres@localhost:5432/healthcare",
     )
 
     # JWT
@@ -22,5 +24,6 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
+
 
 settings = Settings()

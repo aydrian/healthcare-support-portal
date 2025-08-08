@@ -1,16 +1,20 @@
 import re
-from typing import List
+
 import tiktoken
+
 
 def clean_text(text: str) -> str:
     """Clean and normalize text content."""
     # Remove extra whitespace
-    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r"\s+", " ", text)
     # Remove special characters but keep medical terminology
-    text = re.sub(r'[^\w\s\-\.\,\:\;\(\)\/]', '', text)
+    text = re.sub(r"[^\w\s\-\.\,\:\;\(\)\/]", "", text)
     return text.strip()
 
-def chunk_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> List[str]:
+
+def chunk_text(
+    text: str, chunk_size: int = 1000, chunk_overlap: int = 200
+) -> list[str]:
     """
     Split text into overlapping chunks for better context preservation.
     """
@@ -44,15 +48,16 @@ def chunk_text(text: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> L
 
     return chunks
 
-def extract_keywords(text: str) -> List[str]:
+
+def extract_keywords(text: str) -> list[str]:
     """Extract potential medical keywords from text."""
     # Simple keyword extraction - in production, use more sophisticated NLP
     medical_patterns = [
-        r'\b[A-Z][a-z]+\s+[A-Z][a-z]+\b',  # Proper nouns (conditions, medications)
-        r'\b\d+\s*mg\b',  # Dosages
-        r'\b\d+\s*ml\b',  # Volumes
-        r'\bICD[-\s]?\d+\b',  # ICD codes
-        r'\bCPT[-\s]?\d+\b',  # CPT codes
+        r"\b[A-Z][a-z]+\s+[A-Z][a-z]+\b",  # Proper nouns (conditions, medications)
+        r"\b\d+\s*mg\b",  # Dosages
+        r"\b\d+\s*ml\b",  # Volumes
+        r"\bICD[-\s]?\d+\b",  # ICD codes
+        r"\bCPT[-\s]?\d+\b",  # CPT codes
     ]
 
     keywords = []
@@ -61,6 +66,7 @@ def extract_keywords(text: str) -> List[str]:
         keywords.extend(matches)
 
     return list(set(keywords))  # Remove duplicates
+
 
 def calculate_token_count(text: str) -> int:
     """Calculate the number of tokens in a text."""
