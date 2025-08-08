@@ -71,7 +71,7 @@ async def similarity_search(
     query_text: str,
     db: Session,
     limit: int = 5,
-    similarity_threshold: float = 0.7,
+    similarity_threshold: float = 0.1,
     document_ids: Optional[List[int]] = None
 ) -> List[dict]:
     """
@@ -95,24 +95,29 @@ async def similarity_search(
             d.document_type,
             d.department,
             d.is_sensitive,
-            1 - (e.embedding_vector <=> %s::vector) as similarity
+            1 - (e.embedding_vector <=> :query_vector) as similarity
         FROM embeddings e
         JOIN documents d ON e.document_id = d.id
-        WHERE 1 - (e.embedding_vector <=> %s::vector) > %s
+        WHERE 1 - (e.embedding_vector <=> :query_vector) > :threshold
         """
 
-        params = [query_embedding, query_embedding, similarity_threshold]
+        # Convert query embedding to proper format for pgvector
+        params = {
+            "query_vector": str(query_embedding),
+            "threshold": similarity_threshold
+        }
 
         # Add document ID filter if provided
         if document_ids:
-            placeholders = ','.join(['%s'] * len(document_ids))
+            placeholders = ','.join([f':doc_id_{i}' for i in range(len(document_ids))])
             base_query += f" AND e.document_id IN ({placeholders})"
-            params.extend(document_ids)
+            for i, doc_id in enumerate(document_ids):
+                params[f"doc_id_{i}"] = doc_id
 
-        base_query += " ORDER BY similarity DESC LIMIT %s"
-        params.append(limit)
+        base_query += " ORDER BY similarity DESC LIMIT :limit"
+        params["limit"] = limit
 
-        # Execute query
+        # Execute query with proper parameter binding
         result = db.execute(text(base_query), params)
         rows = result.fetchall()
 
@@ -120,15 +125,21 @@ async def similarity_search(
         results = []
         for row in rows:
             results.append({
-                "embedding_id": row[0],
-                "document_id": row[1],
+                # Frontend-compatible field names
+                "id": row[1],                    # document_id → id
+                "title": row[4],                 # document_title → title
                 "content_chunk": row[2],
-                "chunk_index": row[3],
-                "document_title": row[4],
                 "document_type": row[5],
                 "department": row[6],
+                "similarity_score": float(row[8]), # similarity → similarity_score
+                "created_at": "",                # Will be populated by document data if needed
+                # Keep internal fields for backend processing
+                "embedding_id": row[0],
+                "document_id": row[1],          # Keep for internal use
+                "chunk_index": row[3],
+                "document_title": row[4],       # Keep for internal use
                 "is_sensitive": row[7],
-                "similarity": float(row[8])
+                "similarity": float(row[8])     # Keep for internal use
             })
 
         return results

@@ -7,6 +7,8 @@ This script is idempotent - safe to run multiple times without creating duplicat
 """
 
 import sys
+import requests
+import time
 from datetime import datetime
 from typing import Dict, List
 from sqlalchemy.orm import Session
@@ -16,10 +18,87 @@ from .models import User, Patient, Document
 from .auth import get_password_hash
 from .oso_sync import sync_admin_global_access, sync_patient_access, sync_document_access
 
+# Service URLs - update these based on your environment
+AUTH_SERVICE_URL = "http://localhost:8001"
+PATIENT_SERVICE_URL = "http://localhost:8002"
+RAG_SERVICE_URL = "http://localhost:8003"
 
-def seed_users(db: Session) -> Dict[str, User]:
-    """Create demo users if they don't exist."""
+def wait_for_services():
+    """Wait for services to be available before seeding"""
+    services = [
+        (AUTH_SERVICE_URL, "Auth Service"),
+        (PATIENT_SERVICE_URL, "Patient Service"), 
+        (RAG_SERVICE_URL, "RAG Service")
+    ]
+    
+    for url, name in services:
+        for attempt in range(30):  # Wait up to 30 seconds
+            try:
+                response = requests.get(f"{url}/health", timeout=2)
+                if response.status_code == 200:
+                    print(f"✅ {name} is ready")
+                    break
+            except requests.RequestException:
+                if attempt < 29:
+                    print(f"⏳ Waiting for {name}... (attempt {attempt + 1})")
+                    time.sleep(1)
+                else:
+                    print(f"❌ {name} is not available after 30 seconds")
+                    return False
+    return True
+
+def get_admin_token(db: Session) -> str:
+    """Get admin token for API calls"""
+    # First, create admin user directly in database (bootstrap)
+    admin_user = db.query(User).filter(User.username == "admin_wilson").first()
+    if not admin_user:
+        # Create admin user directly for bootstrapping
+        hashed_password = get_password_hash("secure_password")
+        admin_user = User(
+            username="admin_wilson",
+            email="jennifer.wilson@hospital.com",
+            hashed_password=hashed_password,
+            role="admin",
+            department="administration",
+            is_active=True
+        )
+        db.add(admin_user)
+        db.commit()
+        db.refresh(admin_user)
+        
+        # Sync OSO facts for admin user
+        try:
+            sync_admin_global_access(admin_user)
+            print(f"🔐 Created bootstrap admin user: {admin_user.username}")
+        except Exception as e:
+            print(f"⚠️  Failed to sync OSO facts for bootstrap admin: {e}")
+    
+    # Get auth token
+    try:
+        response = requests.post(
+            f"{AUTH_SERVICE_URL}/api/v1/auth/login",
+            data={
+                "username": "admin_wilson",
+                "password": "secure_password"
+            }
+        )
+        response.raise_for_status()
+        token_data = response.json()
+        return token_data["access_token"]
+    except Exception as e:
+        print(f"❌ Failed to get admin token: {e}")
+        return None
+
+def seed_users(db: Session, admin_token: str) -> Dict[str, User]:
+    """Create demo users using API calls."""
     created_users = {}
+    
+    # Admin user is already created during bootstrap, just get it
+    admin_user = db.query(User).filter(User.username == "admin_wilson").first()
+    if admin_user:
+        created_users["admin_wilson"] = admin_user
+        print(f"✅ Using bootstrap admin user: admin_wilson")
+    
     demo_users = [
         {
             "username": "dr_smith",
@@ -36,16 +115,10 @@ def seed_users(db: Session) -> Dict[str, User]:
             "role": "nurse",
             "department": "emergency",
             "full_name": "Nurse Michael Johnson"
-        },
-        {
-            "username": "admin_wilson",
-            "email": "jennifer.wilson@hospital.com",
-            "password": "secure_password", 
-            "role": "admin",
-            "department": "administration",
-            "full_name": "Admin Jennifer Wilson"
         }
     ]
+    
+    headers = {"Authorization": f"Bearer {admin_token}"}
     
     for user_data in demo_users:
         # Check if user already exists
@@ -53,47 +126,33 @@ def seed_users(db: Session) -> Dict[str, User]:
         if existing_user:
             print(f"✅ User '{user_data['username']}' already exists, skipping")
             created_users[user_data["username"]] = existing_user
-            
-            # Sync OSO facts for existing admin users (in case they weren't synced before)
-            if existing_user.role == "admin":
-                try:
-                    sync_admin_global_access(existing_user)
-                    print(f"🔐 Synced admin access facts for existing user {user_data['username']}")
-                except Exception as e:
-                    print(f"⚠️  Failed to sync OSO facts for existing user {user_data['username']}: {e}")
-            continue
-            
-        # Check if email already exists
-        existing_email = db.query(User).filter(User.email == user_data["email"]).first()
-        if existing_email:
-            print(f"⚠️  Email '{user_data['email']}' already exists, skipping user '{user_data['username']}'")
             continue
         
-        # Create new user
-        hashed_password = get_password_hash(user_data["password"])
-        new_user = User(
-            username=user_data["username"],
-            email=user_data["email"],
-            hashed_password=hashed_password,
-            role=user_data["role"],
-            department=user_data["department"],
-            is_active=True
-        )
-        
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-        
-        created_users[user_data["username"]] = new_user
-        print(f"✅ Created user: {user_data['full_name']} ({user_data['username']})")
-        
-        # Sync OSO facts for admin users
-        if new_user.role == "admin":
-            try:
-                sync_admin_global_access(new_user)
-                print(f"🔐 Synced admin access facts for {user_data['username']}")
-            except Exception as e:
-                print(f"⚠️  Failed to sync OSO facts for {user_data['username']}: {e}")
+        # Create user via API
+        try:
+            response = requests.post(
+                f"{AUTH_SERVICE_URL}/api/v1/users/",
+                json={
+                    "username": user_data["username"],
+                    "email": user_data["email"],
+                    "password": user_data["password"],
+                    "role": user_data["role"],
+                    "department": user_data["department"]
+                },
+                headers=headers
+            )
+            
+            if response.status_code == 200:
+                user_response = response.json()
+                # Get user from database
+                new_user = db.query(User).filter(User.id == user_response["id"]).first()
+                created_users[user_data["username"]] = new_user
+                print(f"✅ Created user via API: {user_data['full_name']} ({user_data['username']})")
+            else:
+                print(f"⚠️  Failed to create user {user_data['username']}: {response.text}")
+                
+        except Exception as e:
+            print(f"⚠️  Error creating user {user_data['username']}: {e}")
     
     return created_users
 
@@ -173,7 +232,7 @@ def seed_patients(db: Session, users: Dict[str, User]) -> List[Patient]:
     return created_patients
 
 
-def seed_documents(db: Session, users: Dict[str, User], patients: List[Patient]) -> List[Document]:
+def seed_documents(db: Session, users: Dict[str, User], patients: List[Patient], admin_token: str) -> List[Document]:
     """Create demo documents if they don't exist."""
     created_documents = []
     
@@ -308,6 +367,8 @@ Remember: You are an important part of your healthcare team!""",
         }
     ]
     
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    
     for doc_data in demo_documents:
         # Check if document already exists (by title)
         existing_doc = db.query(Document).filter(
@@ -316,38 +377,33 @@ Remember: You are an important part of your healthcare team!""",
         if existing_doc:
             print(f"✅ Document '{doc_data['title']}' already exists, skipping")
             created_documents.append(existing_doc)
-            
-            # Sync OSO facts for existing documents (in case they weren't synced before)
-            try:
-                sync_document_access(existing_doc)
-                print(f"🔐 Synced access facts for existing document {doc_data['title']}")
-            except Exception as e:
-                print(f"⚠️  Failed to sync OSO facts for existing document {doc_data['title']}: {e}")
             continue
         
-        # Create new document
-        new_document = Document(
-            title=doc_data["title"],
-            content=doc_data["content"],
-            document_type=doc_data["document_type"],
-            department=doc_data["department"],
-            created_by_id=doctor.id,
-            is_sensitive=doc_data["is_sensitive"]
-        )
-        
-        db.add(new_document)
-        db.commit()
-        db.refresh(new_document)
-        
-        created_documents.append(new_document)
-        print(f"✅ Created document: {doc_data['title']}")
-        
-        # Sync OSO facts for document access
+        # Create document via RAG service API (this will automatically generate embeddings!)
         try:
-            sync_document_access(new_document)
-            print(f"🔐 Synced access facts for document {doc_data['title']}")
+            response = requests.post(
+                f"{RAG_SERVICE_URL}/api/v1/documents/",
+                json={
+                    "title": doc_data["title"],
+                    "content": doc_data["content"],
+                    "document_type": doc_data["document_type"],
+                    "department": doc_data["department"],
+                    "is_sensitive": doc_data["is_sensitive"]
+                },
+                headers=headers
+            )
+            
+            if response.status_code == 200:
+                doc_response = response.json()
+                # Get document from database
+                new_document = db.query(Document).filter(Document.id == doc_response["id"]).first()
+                created_documents.append(new_document)
+                print(f"✅ Created document via RAG API (with embeddings): {doc_data['title']}")
+            else:
+                print(f"⚠️  Failed to create document {doc_data['title']}: {response.text}")
+                
         except Exception as e:
-            print(f"⚠️  Failed to sync OSO facts for document {doc_data['title']}: {e}")
+            print(f"⚠️  Error creating document {doc_data['title']}: {e}")
     
     # Create patient-specific documents
     if patients:
@@ -398,39 +454,35 @@ Stable coronary artery disease. Continue current medications. Next follow-up in 
             ).first()
             if existing_doc:
                 print(f"✅ Patient document '{doc_data['title']}' already exists, skipping")
-                
-                # Sync OSO facts for existing patient documents (in case they weren't synced before)
-                try:
-                    sync_document_access(existing_doc)
-                    print(f"🔐 Synced access facts for existing patient document {doc_data['title']}")
-                except Exception as e:
-                    print(f"⚠️  Failed to sync OSO facts for existing patient document {doc_data['title']}: {e}")
+                created_documents.append(existing_doc)
                 continue
             
-            # Create new patient document
-            new_document = Document(
-                title=doc_data["title"],
-                content=doc_data["content"],
-                document_type=doc_data["document_type"],
-                department="cardiology",
-                patient_id=doc_data["patient_id"],
-                created_by_id=doctor.id,
-                is_sensitive=doc_data["is_sensitive"]
-            )
-            
-            db.add(new_document)
-            db.commit()
-            db.refresh(new_document)
-            
-            created_documents.append(new_document)
-            print(f"✅ Created patient document: {doc_data['title']}")
-            
-            # Sync OSO facts for patient document access
+            # Create patient document via RAG service API (with embeddings!)
             try:
-                sync_document_access(new_document)
-                print(f"🔐 Synced access facts for patient document {doc_data['title']}")
+                response = requests.post(
+                    f"{RAG_SERVICE_URL}/api/v1/documents/",
+                    json={
+                        "title": doc_data["title"],
+                        "content": doc_data["content"],
+                        "document_type": doc_data["document_type"],
+                        "department": "cardiology",
+                        "patient_id": doc_data["patient_id"],
+                        "is_sensitive": doc_data["is_sensitive"]
+                    },
+                    headers=headers
+                )
+                
+                if response.status_code == 200:
+                    doc_response = response.json()
+                    # Get document from database
+                    new_document = db.query(Document).filter(Document.id == doc_response["id"]).first()
+                    created_documents.append(new_document)
+                    print(f"✅ Created patient document via RAG API (with embeddings): {doc_data['title']}")
+                else:
+                    print(f"⚠️  Failed to create patient document {doc_data['title']}: {response.text}")
+                    
             except Exception as e:
-                print(f"⚠️  Failed to sync OSO facts for patient document {doc_data['title']}: {e}")
+                print(f"⚠️  Error creating patient document {doc_data['title']}: {e}")
     
     return created_documents
 
@@ -451,28 +503,43 @@ def main() -> None:
         db = SessionLocal()
         
         try:
-            # Seed users
-            print("\n👥 Seeding demo users...")
-            users = seed_users(db)
+            # Wait for services to be available
+            print("\n⏳ Waiting for services to be ready...")
+            if not wait_for_services():
+                print("❌ Services not available, exiting...")
+                return
             
-            # Seed patients
+            # Get admin token for API calls
+            print("\n🔑 Getting admin authentication token...")
+            admin_token = get_admin_token(db)
+            if not admin_token:
+                print("❌ Could not get admin token, exiting...")
+                return
+            
+            # Seed users via API
+            print("\n👥 Seeding demo users via API...")
+            users = seed_users(db, admin_token)
+            
+            # Seed patients (still direct DB for now - could be API later)
             print("\n🏥 Seeding demo patients...")
             patients = seed_patients(db, users)
             
-            # Seed documents
-            print("\n📄 Seeding demo documents...")
-            documents = seed_documents(db, users, patients)
+            # Seed documents via RAG API (this will generate embeddings!)
+            print("\n📄 Seeding demo documents via RAG API...")
+            documents = seed_documents(db, users, patients, admin_token)
             
             print("\n" + "=" * 50)
             print("🎉 Seeding completed successfully!")
             print(f"   Users created/verified: {len(users)}")
             print(f"   Patients created/verified: {len(patients)}")
             print(f"   Documents created/verified: {len(documents)}")
+            print("   📊 Documents created via RAG API include vector embeddings for chat!")
             print("\n🔐 Demo Login Credentials:")
             print("   Doctor:  dr_smith / secure_password")
             print("   Nurse:   nurse_johnson / secure_password") 
             print("   Admin:   admin_wilson / secure_password")
             print("\n🌐 Access the application at: http://localhost:3000")
+            print("💬 Try the chat feature - it should now find relevant documents!")
             
         finally:
             db.close()

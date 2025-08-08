@@ -1,7 +1,8 @@
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from sqlalchemy_oso_cloud import get_oso
 
 from common.db import get_db
 from common.models import User
@@ -56,11 +57,24 @@ async def login(
 @router.post("/register", response_model=UserResponse)
 async def register(
     user_data: UserCreate,
+    request: Request,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Register a new user
+    Register a new user (admin only - deprecated, use POST /api/v1/users/ instead)
     """
+    oso = get_oso()
+    
+    # Create a temporary User object to check authorization
+    temp_user = User()
+    
+    # Check if current user is authorized to write users (admin only)
+    if not oso.authorize(current_user, "write", temp_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can create new users. Use POST /api/v1/users/ endpoint instead."
+        )
     # Check if user already exists
     existing_user = db.query(User).filter(
         (User.username == user_data.username) | 

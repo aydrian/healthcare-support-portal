@@ -7,6 +7,7 @@ from common.db import get_db
 from common.models import User
 from common.auth import get_current_user
 from common.schemas import UserResponse, UserCreate
+from common.auth import get_password_hash
 from common.oso_sync import sync_user_role_change, sync_department_change, sync_admin_global_access
 
 router = APIRouter()
@@ -109,3 +110,60 @@ async def update_user(
         print(f"Warning: Failed to sync OSO facts for user {user.id}: {e}")
 
     return user
+
+@router.post("/", response_model=UserResponse)
+async def create_user(
+    user_data: UserCreate,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Create new user (admin only)
+    """
+    oso = get_oso()
+    
+    # Check if current user has admin role (only admins can create users)
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can create new users"
+        )
+    
+    # Check if user already exists
+    existing_user = db.query(User).filter(
+        (User.username == user_data.username) | 
+        (User.email == user_data.email)
+    ).first()
+    
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username or email already registered"
+        )
+    
+    # Create new user
+    hashed_password = get_password_hash(user_data.password)
+    new_user = User(
+        username=user_data.username,
+        email=user_data.email,
+        hashed_password=hashed_password,
+        role=user_data.role,
+        department=user_data.department,
+        is_active=True
+    )
+    
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    # Sync OSO facts for new user
+    try:
+        if new_user.role == "admin":
+            sync_admin_global_access(new_user)
+        print(f"Synced OSO facts for new user {new_user.username}")
+    except Exception as e:
+        # Log the error but don't fail the request
+        print(f"Warning: Failed to sync OSO facts for new user {new_user.id}: {e}")
+    
+    return new_user

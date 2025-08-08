@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     chunk_size: int = 1000
     chunk_overlap: int = 200
     max_context_length: int = 8000
-    similarity_threshold: float = 0.7
+    similarity_threshold: float = 0.3
     max_results: int = 5
 
     # Oso Configuration

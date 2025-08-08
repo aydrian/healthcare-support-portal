@@ -4,7 +4,6 @@ export default [
   layout("routes/_layout.tsx", [
     index("routes/dashboard.tsx"),
     route("login", "routes/login.tsx"),
-    route("signup", "routes/signup.tsx"),
     route("logout", "routes/logout.tsx"),
     route("patients", "routes/patients/index.tsx"),
     route("patients/:id", "routes/patients/patient.tsx"),

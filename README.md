@@ -148,7 +148,19 @@ docker-compose up -d
 # Wait for services to be ready (about 15 seconds)
 ```
 
-### 4. Install Dependencies
+### 4. Initialize Database Schema
+
+```bash
+# Create database tables and enable extensions
+uv run python init_database.py
+
+# This will:
+# - Enable the pgvector extension in PostgreSQL  
+# - Create all required database tables
+# - Prevent table creation conflicts during service startup
+```
+
+### 5. Install Dependencies
 
 ```bash
 # Install Python dependencies (all packages at once)
@@ -158,7 +170,7 @@ uv sync
 cd frontend && npm install && cd ..
 ```
 
-### 5. Start All Services
+### 6. Start All Services
 
 ```bash
 # Start all services at once
@@ -171,7 +183,19 @@ cd packages/rag && ./run.sh &
 cd frontend && ./run.sh &
 ```
 
-### 6. Verify Installation
+### 7. Seed Demo Data (Optional)
+
+```bash
+# Create demo users, patients, and medical documents
+uv run python -m common.seed_data
+
+# This creates demo login credentials:
+# Doctor:  dr_smith / secure_password
+# Nurse:   nurse_johnson / secure_password  
+# Admin:   admin_wilson / secure_password
+```
+
+### 8. Verify Installation
 
 Visit the application and API documentation:
 - **🌐 Frontend Application:** http://localhost:3000
@@ -364,6 +388,7 @@ healthcare-support-portal/
 ├── pyproject.toml              # Workspace configuration
 ├── uv.lock                     # Single lockfile for Python
 ├── docker-compose.yml          # Infrastructure services setup
+├── init_database.py            # Database schema initialization
 ├── run_all.sh                  # Start all services
 ├── stop_all.sh                 # Stop all services
 └── setup.sh                    # Initial project setup
@@ -372,8 +397,13 @@ healthcare-support-portal/
 ### Development Workflow
 
 ```bash
-# Start development environment
-./run_all.sh
+# Start development environment (first time setup)
+docker-compose up -d                    # Start infrastructure
+uv run python init_database.py          # Initialize database schema
+./run_all.sh                           # Start all services
+
+# Daily development
+./run_all.sh                           # Start services (database already initialized)
 
 # Make changes to code (auto-reload enabled)
 

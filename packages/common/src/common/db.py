@@ -35,10 +35,14 @@ def enable_extensions():
         # Don't raise the exception - let the service continue
         # Extensions might already be enabled or the database might not support them
 
-# Function to create all tables
+# Function to create all tables (safe for concurrent access)
 def create_tables():
     from .models import Base
-    Base.metadata.create_all(bind=engine)
+    try:
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+    except Exception as e:
+        # If tables already exist, that's fine - just continue
+        print(f"Note: Database tables may already exist: {e}")
 
 # Function to drop all tables (for testing)
 def drop_tables():

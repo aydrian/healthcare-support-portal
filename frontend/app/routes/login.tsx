@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, Form, redirect, useNavigation } from 'react-router';
+import { Form, redirect, useNavigation } from 'react-router';
 import { Activity, Eye, EyeOff } from 'lucide-react';
 import { useForm, getFormProps, getInputProps } from '@conform-to/react';
 import { parseWithZod } from '@conform-to/zod';
@@ -169,17 +169,17 @@ export default function Login({ actionData }: LoginProps) {
                 </div>
                 <div className="relative flex justify-center text-sm">
                   <span className="px-2 bg-white text-gray-500">
-                    New to the platform?
+                    Need access?
                   </span>
                 </div>
               </div>
 
               <div className="mt-6">
-                <Link to="/signup">
-                  <Button variant="outline" className="w-full">
-                    Create an account
-                  </Button>
-                </Link>
+                <div className="text-center p-4 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-600">
+                    Contact your system administrator to request access to the Healthcare Support Portal.
+                  </p>
+                </div>
               </div>
             </div>
           </CardContent>

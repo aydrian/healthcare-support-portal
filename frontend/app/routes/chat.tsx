@@ -3,6 +3,10 @@ import { Send, MessageSquare, Loader2, FileText, User as UserIcon, Bot } from 'l
 import { useLoaderData, useFetcher, Form } from 'react-router';
 import { useForm, getFormProps, getInputProps } from '@conform-to/react';
 import { parseWithZod } from '@conform-to/zod';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
+import rehypeSanitize from 'rehype-sanitize';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -167,8 +171,13 @@ export default function Chat() {
                 </div>
               </div>
               <div className="space-y-2">
-                <div className="chat-bubble-assistant">
-                  {message.content}
+                <div className="chat-bubble-assistant markdown-content">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeSanitize, rehypeHighlight]}
+                  >
+                    {message.content}
+                  </ReactMarkdown>
                 </div>
                 {message.sources && message.sources.length > 0 && (
                   <div className="text-xs text-gray-500">
