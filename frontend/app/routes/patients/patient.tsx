@@ -107,9 +107,11 @@ export default function PatientDetail() {
           <Badge variant={patient.is_active ? 'active' : 'inactive'}>
             {patient.is_active ? 'Active' : 'Inactive'}
           </Badge>
-          <Button size="sm">
-            <Edit className="mr-2 h-4 w-4" />
-            Edit Patient
+          <Button size="sm" asChild>
+            <Link to={`/patients/${patient.id}/edit`}>
+              <Edit className="mr-2 h-4 w-4" />
+              Edit Patient
+            </Link>
           </Button>
         </div>
       </div>
@@ -192,8 +194,10 @@ export default function PatientDetail() {
                 <p className="text-sm text-gray-500">
                   Medical history and records will appear here once added.
                 </p>
-                <Button variant="outline" className="mt-4">
-                  Add Medical Record
+                <Button variant="outline" className="mt-4" asChild>
+                  <Link to={`/documents/new?patient_id=${patient.id}`}>
+                    Add Medical Record
+                  </Link>
                 </Button>
               </div>
             </CardContent>
@@ -292,21 +296,27 @@ export default function PatientDetail() {
               <CardTitle className="text-lg">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button variant="outline" size="sm" className="w-full justify-start">
-                <Edit className="mr-2 h-4 w-4" />
-                Edit Patient Info
+              <Button variant="outline" size="sm" className="w-full justify-start" asChild>
+                <Link to={`/patients/${patient.id}/edit`}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit Patient Info
+                </Link>
               </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start">
-                <FileText className="mr-2 h-4 w-4" />
-                Add Medical Record
+              <Button variant="outline" size="sm" className="w-full justify-start" asChild>
+                <Link to={`/documents/new?patient_id=${patient.id}&document_type=medical_record`}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Add Medical Record
+                </Link>
               </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start">
+              <Button variant="outline" size="sm" className="w-full justify-start" disabled>
                 <Calendar className="mr-2 h-4 w-4" />
                 Schedule Appointment
               </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start">
-                <Activity className="mr-2 h-4 w-4" />
-                View Chart
+              <Button variant="outline" size="sm" className="w-full justify-start" asChild>
+                <Link to="/chat">
+                  <Activity className="mr-2 h-4 w-4" />
+                  AI Assistant
+                </Link>
               </Button>
             </CardContent>
           </Card>

@@ -20,18 +20,20 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { EmbeddingStatus } from '@/components/embeddings/EmbeddingStatus';
+import { DocumentUpload } from '@/components/documents/DocumentUpload';
 import { formatDateTime, truncateText } from '@/lib/utils';
 import { requireAuth, handleApiError } from '@/lib/utils/loader-utils';
 import { handleFormSubmission } from '@/lib/utils/action-utils';
 import { serverApi } from '@/lib/api.server';
 import { documentCreateSchema } from '@/lib/schemas';
-import type { Document, User } from '@/lib/types';
+import type { Document, User, Patient } from '@/lib/types';
 import type { LoaderFunctionArgs, ActionFunctionArgs } from 'react-router';
 
 interface DocumentsData {
   user: User;
   documents: Document[];
   embeddingStatuses: Record<number, any>;
+  patients: Patient[];
 }
 
 // Loader function - fetch documents data
@@ -48,16 +50,18 @@ export async function loader({ request }: LoaderFunctionArgs) {
       throw new Response('Authentication required', { status: 401 });
     }
     
-    // Load documents and embedding statuses
-    const [documents, embeddingStatuses] = await Promise.all([
+    // Load documents, embedding statuses, and patients
+    const [documents, embeddingStatuses, patients] = await Promise.all([
       serverApi.getDocuments(token),
-      serverApi.getAllEmbeddingStatuses(token)
+      serverApi.getAllEmbeddingStatuses(token),
+      serverApi.getPatients(token)
     ]);
 
     return {
       user,
       documents,
-      embeddingStatuses
+      embeddingStatuses,
+      patients
     };
   } catch (error) {
     throw handleApiError(error);
@@ -110,7 +114,7 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function Documents() {
-  const { user, documents, embeddingStatuses: initialEmbeddingStatuses } = useLoaderData<DocumentsData>();
+  const { user, documents, embeddingStatuses: initialEmbeddingStatuses, patients } = useLoaderData<DocumentsData>();
   const fetcher = useFetcher();
   const [filteredDocuments, setFilteredDocuments] = useState<Document[]>(documents);
   const [searchTerm, setSearchTerm] = useState('');
@@ -409,26 +413,8 @@ export default function Documents() {
         </Card>
       </div>
 
-      {/* Upload Zone */}
-      <Card className="border-2 border-dashed border-gray-300 hover:border-gray-400 transition-colors">
-        <CardContent className="p-8">
-          <div className="text-center">
-            <Upload className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">
-              Upload new documents
-            </h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Drag and drop files here, or click to browse
-            </p>
-            <div className="mt-6">
-              <Button variant="outline">
-                <Upload className="mr-2 h-4 w-4" />
-                Choose Files
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Document Upload */}
+      <DocumentUpload patients={patients} user={user} />
     </div>
   );
 }
