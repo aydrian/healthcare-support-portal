@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import sqlalchemy_oso_cloud
 import openai
 
-from common.db import enable_extensions
+from common.migration_check import require_migrations_current
 from common.models import User, Patient, Document, Base
 from .config import settings
 from .routers import documents, chat
@@ -48,8 +48,9 @@ app.include_router(chat.router, prefix="/api/v1/chat", tags=["Chat"])
 
 @app.on_event("startup")
 async def startup_event():
-    """Enable extensions on startup"""
-    enable_extensions()
+    """Verify migrations and start service"""
+    # Verify database migrations are current
+    require_migrations_current()
     print(f"🚀 {settings.app_name} started on port {settings.port}")
 
 @app.get("/")

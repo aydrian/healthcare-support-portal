@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import sqlalchemy_oso_cloud
 
-from common.db import enable_extensions
+from common.migration_check import require_migrations_current
 from common.models import User, Patient, Document, Base
 from .config import settings
 from .routers import patients
@@ -43,8 +43,9 @@ app.include_router(patients.router, prefix="/api/v1/patients", tags=["Patients"]
 
 @app.on_event("startup")
 async def startup_event():
-    """Enable extensions on startup"""
-    enable_extensions()
+    """Verify migrations and start service"""
+    # Verify database migrations are current
+    require_migrations_current()
     print(f"🚀 {settings.app_name} started on port {settings.port}")
 
 @app.get("/")

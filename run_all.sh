@@ -37,11 +37,16 @@ echo "🚀 Starting services..."
 echo "🏗️  Checking infrastructure services..."
 if ! docker ps | grep -q healthcare-support-portal; then
     echo "Starting PostgreSQL database and Oso Dev Server..."
-    docker-compose up -d
-    echo "Waiting for infrastructure services to be ready..."
+    docker-compose up -d db oso
+    echo "Waiting for database to be ready..."
     sleep 8
+    echo "Running database migrations..."
+    docker-compose run --rm migrate
+    echo "✅ Database migrations completed"
 else
     echo "✅ Infrastructure services (PostgreSQL + Oso Dev Server) are already running"
+    echo "🔍 Checking if migrations are current..."
+    docker-compose run --rm migrate
 fi
 
 # Create logs directory if it doesn't exist

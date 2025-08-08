@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import Dict, List
 from sqlalchemy.orm import Session
 
-from .db import SessionLocal, enable_extensions, create_tables
+from .db import SessionLocal
 from .models import User, Patient, Document
 from .auth import get_password_hash
 from .oso_sync import sync_admin_global_access, sync_patient_access, sync_document_access
@@ -500,11 +500,9 @@ def main() -> None:
     print("=" * 50)
     
     try:
-        # Ensure database extensions and tables exist
-        print("📊 Ensuring database schema is up to date...")
-        enable_extensions()
-        create_tables()
-        print("✅ Database schema ready")
+        # Note: Database migrations should be run before seeding
+        print("📊 Database migrations should already be applied")
+        print("   If not, run: docker-compose run migrate")
         
         # Create database session
         db = SessionLocal()
