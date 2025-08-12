@@ -22,7 +22,7 @@ eggs/
 .eggs/
 # Python lib directories (but not frontend lib directories)
 **/lib/
-!services/frontend_service/**/lib/
+!frontend/**/lib/
 lib64/
 parts/
 sdist/
