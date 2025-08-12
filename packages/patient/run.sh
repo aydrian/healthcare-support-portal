@@ -22,5 +22,11 @@ echo "📊 Debug mode: $DEBUG"
 echo "🔑 Using SECRET_KEY: ${SECRET_KEY:0:10}..."
 echo "🗄️  Database: ${DATABASE_URL%%@*}@***"
 
+# Use uv from PATH (works in both Docker and local environments)
+UV_CMD="uv"
+if [ -f "/opt/homebrew/bin/uv" ]; then
+    UV_CMD="/opt/homebrew/bin/uv"
+fi
+
 # Run the patient service
-uv run uvicorn src.patient_service.main:app --reload --host $HOST --port $PORT
+$UV_CMD run uvicorn src.patient_service.main:app --reload --host $HOST --port $PORT

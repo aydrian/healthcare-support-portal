@@ -44,5 +44,11 @@ if [ -z "$OPENAI_API_KEY" ]; then
     echo "   Please set your OpenAI API key in the .env file or environment variables."
 fi
 
+# Use uv from PATH (works in both Docker and local environments)
+UV_CMD="uv"
+if [ -f "/opt/homebrew/bin/uv" ]; then
+    UV_CMD="/opt/homebrew/bin/uv"
+fi
+
 # Run the RAG service
-uv run uvicorn src.rag_service.main:app --reload --host $HOST --port $PORT
+$UV_CMD run uvicorn src.rag_service.main:app --reload --host $HOST --port $PORT

@@ -24,5 +24,11 @@ echo "🔑 Using SECRET_KEY: ${SECRET_KEY:0:10}..."
 echo "🗄️  Database: ${DATABASE_URL%%@*}@***"
 echo "⏰ Token expiry: $ACCESS_TOKEN_EXPIRE_MINUTES minutes"
 
+# Use uv from PATH (works in both Docker and local environments)
+UV_CMD="uv"
+if [ -f "/opt/homebrew/bin/uv" ]; then
+    UV_CMD="/opt/homebrew/bin/uv"
+fi
+
 # Run the auth service
-uv run uvicorn src.auth_service.main:app --reload --host $HOST --port $PORT
+$UV_CMD run uvicorn src.auth_service.main:app --reload --host $HOST --port $PORT

@@ -45,7 +45,13 @@ cd /app/packages/common || cd packages/common
 
 echo ""
 echo "🔍 Checking current migration status..."
-if uv run alembic current 2>/dev/null; then
+# Use uv from PATH (works in both Docker and local environments)
+UV_CMD="uv"
+if [ -f "/opt/homebrew/bin/uv" ]; then
+    UV_CMD="/opt/homebrew/bin/uv"
+fi
+
+if $UV_CMD run alembic current 2>/dev/null; then
   echo "   Current migration retrieved successfully"
 else
   echo "   No migrations found (fresh database)"
@@ -59,14 +65,14 @@ MAX_RETRIES=3
 for i in $(seq 1 $MAX_RETRIES); do
   echo "   Attempt $i of $MAX_RETRIES..."
   
-  if uv run alembic upgrade head; then
+  if $UV_CMD run alembic upgrade head; then
     echo ""
     echo "✅ Migrations completed successfully!"
     
     # Show current migration after success
     echo ""
     echo "📋 Current migration status:"
-    uv run alembic current
+    $UV_CMD run alembic current
     
     exit 0
   fi

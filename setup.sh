@@ -11,7 +11,13 @@ mkdir -p data/postgres
 
 # Set up Python environment first
 echo "🐍 Setting up Python environment..."
-uv sync
+# Use uv from PATH (works in both Docker and local environments)
+UV_CMD="uv"
+if [ -f "/opt/homebrew/bin/uv" ]; then
+    UV_CMD="/opt/homebrew/bin/uv"
+fi
+
+$UV_CMD sync
 
 # Copy example .env files
 echo "📋 Setting up environment files..."
@@ -28,7 +34,7 @@ done
 
 # Generate a secure SECRET_KEY
 echo "🔑 Generating secure SECRET_KEY..."
-SECRET_KEY=$(uv run python -c "import secrets; print(secrets.token_urlsafe(32))")
+SECRET_KEY=$($UV_CMD run python -c "import secrets; print(secrets.token_urlsafe(32))")
 
 # Update .env files with the generated SECRET_KEY
 echo "🔄 Updating .env files with generated SECRET_KEY..."
@@ -57,7 +63,7 @@ echo "1. Edit packages/rag/.env and add your OpenAI API key"
 echo "2. Start the database: docker-compose up -d"
 echo "3. Run database migrations: docker-compose run migrate"
 echo "4. Install frontend dependencies: cd frontend && npm install"  
-echo "5. Seed demo data: uv run python -m common.seed_data"
+echo "5. Seed demo data: $UV_CMD run python -m common.seed_data"
 echo "6. Start all services: ./run_all.sh"
 echo ""
 echo "🔐 Demo Login Credentials (after seeding):"
